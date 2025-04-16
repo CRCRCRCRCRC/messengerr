@@ -1,0 +1,380 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    background-color: #f0f2f5; /* Lighter grey background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    color: #1c1e21; /* Darker text */
+}
+
+.container {
+    background-color: #fff;
+    padding: 30px 40px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    text-align: center;
+    max-width: 450px;
+    width: 90%;
+}
+
+h1 {
+    color: #1c1e21;
+    margin-bottom: 25px;
+    font-weight: 600;
+    font-size: 1.8em; /* Slightly larger h1 */
+}
+
+p {
+    color: #606770; /* Grey text */
+    line-height: 1.5;
+    margin-bottom: 20px; /* Added margin bottom */
+}
+
+.button {
+    display: inline-block;
+    padding: 12px 24px; /* Slightly larger padding */
+    background-color: #1877f2; /* Facebook blue */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 17px; /* Slightly larger font */
+    font-weight: 600;
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease;
+    margin-top: 10px; /* Reduced default margin top */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.button:hover {
+    background-color: #166fe5; /* Darker blue on hover */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.button:active {
+     background-color: #155ab3;
+     transform: translateY(1px); /* Subtle press effect */
+}
+
+
+.google-login {
+    background-color: #ffffff; /* White background */
+    color: #444; /* Grey text */
+    border: 1px solid #dadce0; /* Google's border color */
+    display: inline-flex; /* Use inline-flex for better alignment */
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    font-weight: 500;
+    width: auto; /* Adjust width */
+    margin-top: 20px; /* Ensure spacing */
+}
+
+.google-login img {
+    margin-right: 12px;
+    vertical-align: middle;
+}
+
+.google-login:hover {
+    background-color: #f8f9fa; /* Slightly grey on hover */
+    border-color: #c6cacf;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #606770;
+    font-size: 14px; /* Smaller label */
+}
+
+.form-group input[type="text"] {
+    width: 100%; /* Full width */
+    box-sizing: border-box; /* Include padding and border in width */
+    padding: 12px 14px;
+    border: 1px solid #ccd0d5; /* Lighter border */
+    border-radius: 6px;
+    font-size: 16px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group input[type="text"]:focus {
+    border-color: #1877f2;
+    box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.2);
+    outline: none;
+}
+/* Input validation style */
+.form-group input[type="text"]:invalid {
+  border-color: #fa383e; /* Red border for invalid input */
+}
+
+
+.error {
+    color: #fa383e; /* Brighter red */
+    /* margin-top: 12px; */ /* Moved margin logic */
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left; /* Align error with input */
+    min-height: 1em; /* Prevent layout shift when error appears/disappears */
+}
+
+/* --- Chat Styles --- */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 40px); /* Adjust height, leave some padding */
+    max-height: 850px; /* Max height */
+    width: 95%;
+    max-width: 900px; /* Wider chat */
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin: 20px; /* Add margin */
+}
+
+.chat-header {
+    background: #1877f2; /* Solid blue header */
+    /* background: linear-gradient(to right, #1877f2, #3b5998); /* Gradient header */
+    color: white;
+    padding: 12px 20px; /* Adjusted padding */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0; /* Prevent header from shrinking */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* Lighter shadow */
+}
+
+.chat-header h1 {
+    margin: 0;
+    font-size: 1.5em; /* Adjusted size */
+    font-weight: 600;
+    color: white;
+}
+
+.user-info {
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    color: #f0f2f5; /* Light text color */
+}
+.user-info #user-nickname {
+    font-weight: 600;
+    margin-right: 5px;
+    color: #ffffff; /* White nickname */
+}
+.user-info #user-code {
+    color: #d0d0d0; /* Lighter color for code */
+    margin-right: 10px;
+    font-size: 0.9em;
+}
+.user-info #user-avatar {
+    width: 32px; /* Slightly larger avatar */
+    height: 32px;
+    border-radius: 50%;
+    margin-left: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.5); /* Subtle border */
+    display: none; /* Hide by default, show via JS */
+    vertical-align: middle;
+}
+
+
+.logout-button {
+    background-color: rgba(255, 255, 255, 0.15); /* Semi-transparent button */
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 0;
+    border-radius: 4px; /* Less rounded */
+    transition: background-color 0.2s ease;
+}
+.logout-button:hover {
+     background-color: rgba(255, 255, 255, 0.25);
+     border-color: rgba(255, 255, 255, 0.7);
+}
+
+
+#messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 15px 20px; /* Adjusted padding */
+    background-color: #ffffff; /* White message background */
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Add gap between messages */
+}
+
+#messages .message {
+    padding: 0; /* Remove padding from outer container */
+    border-radius: 0; /* Remove border-radius from outer */
+    max-width: 80%; /* Allow slightly wider messages */
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 0; /* Use gap instead */
+}
+#messages .message .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 8px;
+    margin-left: 8px; /* Add left margin too */
+    flex-shrink: 0;
+    align-self: flex-start; /* Align avatar to the top of the message bubble */
+    margin-top: 5px;
+}
+#messages .message .content-container {
+     display: flex;
+     flex-direction: column;
+     padding: 8px 12px; /* Padding inside the bubble */
+     border-radius: 18px; /* Rounded bubble */
+     word-wrap: break-word;
+     overflow: hidden; /* Ensure content stays within bubble */
+}
+
+#messages .message .meta {
+    font-size: 0.8em;
+    color: #606770;
+    margin-bottom: 3px;
+    display: block;
+}
+#messages .message .meta .nickname {
+    font-weight: 600;
+    color: #333; /* Darker nickname */
+    margin-right: 5px;
+}
+#messages .message .meta .timestamp {
+    color: #888; /* Lighter timestamp */
+    font-size: 0.9em;
+}
+#messages .message .text {
+    line-height: 1.4;
+    font-size: 0.95em; /* Slightly adjust text size */
+    color: #050505;
+    white-space: pre-wrap; /* Preserve whitespace and wrap text */
+}
+
+
+#messages .message.my-message {
+    margin-left: auto;
+    flex-direction: row-reverse; /* Avatar on the right */
+}
+#messages .message.my-message .content-container {
+    background-color: #0084ff;
+    color: white;
+    border-bottom-right-radius: 6px; /* Flatter corner */
+    align-items: flex-end; /* Align content right */
+}
+#messages .message.my-message .avatar {
+    margin-left: 8px;
+    margin-right: 0;
+}
+#messages .message.my-message .meta {
+     color: #e0f0ff; /* Lighter meta on blue */
+     text-align: right;
+}
+#messages .message.my-message .meta .nickname {
+    color: #ffffff; /* White nickname */
+}
+#messages .message.my-message .meta .timestamp {
+    color: #b0dfff; /* Lighter timestamp */
+}
+#messages .message.my-message .text {
+    color: white;
+}
+
+
+#messages .message.other-message {
+    margin-right: auto;
+    flex-direction: row;
+}
+#messages .message.other-message .content-container {
+    background-color: #e4e6eb;
+    color: #050505;
+    border-bottom-left-radius: 6px; /* Flatter corner */
+    align-items: flex-start; /* Align content left */
+}
+#messages .message.other-message .meta .nickname {
+    color: #0064d1; /* Blue nickname for others */
+}
+
+
+#messages .message.system-message {
+    background-color: transparent;
+    color: #606770;
+    font-style: italic;
+    font-size: 0.85em; /* Smaller system messages */
+    text-align: center;
+    width: 100%;
+    max-width: 100%;
+    margin: 5px auto; /* Reduced margin */
+    justify-content: center;
+    flex-direction: row; /* Reset direction */
+    align-items: center; /* Center vertically */
+}
+#messages .message.system-message .text {
+     color: #606770;
+     padding: 2px 8px; /* Less padding */
+     background-color: #f0f2f5; /* Slight background */
+     border-radius: 10px;
+}
+
+
+#message-form {
+    display: flex;
+    padding: 10px 15px; /* Reduced padding */
+    border-top: 1px solid #ccd0d5;
+    background-color: #f0f2f5; /* Match message background */
+    align-items: center;
+    flex-shrink: 0;
+    gap: 10px; /* Add gap between input and button */
+}
+
+#message-input {
+    flex-grow: 1;
+    padding: 10px 15px; /* Adjusted padding */
+    border: 1px solid #ccd0d5;
+    border-radius: 18px;
+    /* margin-right: 10px; */ /* Use gap instead */
+    font-size: 15px;
+    resize: none;
+    line-height: 1.4;
+    min-height: 20px; /* Ensure minimum height */
+    max-height: 100px; /* Limit height for multiline */
+    overflow-y: auto; /* Allow scrolling if text exceeds max height */
+}
+#message-input:focus {
+    border-color: #1877f2;
+    box-shadow: 0 0 0 1px rgba(24, 119, 242, 0.5);
+    outline: none;
+}
+
+
+.send-button {
+     padding: 8px 15px; /* Slightly smaller button */
+     font-size: 15px;
+     border-radius: 18px;
+     margin-top: 0;
+     flex-shrink: 0;
+     font-weight: 600;
+}
+
+/* Disable styles */
+#message-input:disabled, .send-button:disabled {
+    background-color: #e4e6eb; /* More noticeable disabled background */
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.send-button:disabled:hover {
+    background-color: #1877f2; /* Keep original color */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
