@@ -1,4 +1,4 @@
-// ✅ 完整修改後的 server.js，解決登入後跳回首頁、cookie 問題、支援 Render 部署
+// ✅ 完整 server.js：支援 Render、登入跳轉、聊天訊息保存到 MongoDB
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -10,8 +10,8 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const User = require('./models/User');
+const Message = require('./models/Message');
 
-// --- 連接 MongoDB ---
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
@@ -20,20 +20,18 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// --- Session 設定 ---
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Render 自動提供 HTTPS，先用 false 測試。之後正式上線可設 true。
+    secure: false,
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24
   }
 });
 
-// --- Middleware ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -46,7 +44,6 @@ require('./config/passport-setup');
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 
-// --- 驗證中介層 ---
 const ensureAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) return next();
   res.redirect('/');
@@ -56,7 +53,6 @@ const ensureNicknameSet = (req, res, next) => {
   res.redirect('/setup');
 };
 
-// --- Avatar 上傳 ---
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, 'public/avatars');
@@ -70,7 +66,6 @@ const avatarStorage = multer.diskStorage({
 });
 const upload = multer({ storage: avatarStorage });
 
-// --- 路由 ---
 app.get('/', async (req, res) => {
   if (req.isAuthenticated()) {
     const freshUser = await User.findById(req.user._id);
@@ -102,7 +97,6 @@ app.get('/chat', ensureAuthenticated, ensureNicknameSet, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
-// --- Socket.IO ---
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
@@ -124,24 +118,46 @@ io.on('connection', async (socket) => {
 
   socket.join(socket.userData.id);
 
-  socket.on('private message', ({ toUserId, message }) => {
+  socket.on('private message', async ({ toUserId, message }) => {
     if (!socket.userData.friends.includes(toUserId)) return;
-    const msgData = {
+
+    const msg = await Message.create({
       from: socket.userData.id,
       to: toUserId,
       message,
       timestamp: new Date(),
+      read: false
+    });
+
+    const msgData = {
+      from: msg.from,
+      to: msg.to,
+      message: msg.message,
+      timestamp: msg.timestamp,
       avatarUrl: socket.userData.avatarUrl,
-      nickname: socket.userData.nickname
+      nickname: socket.userData.nickname,
+      read: false
     };
+
     io.to(toUserId).to(socket.userData.id).emit('private message', msgData);
+  });
+
+  socket.on('load history', async ({ friendId }) => {
+    const messages = await Message.find({
+      $or: [
+        { from: socket.userData.id, to: friendId },
+        { from: friendId, to: socket.userData.id }
+      ]
+    }).sort({ timestamp: 1 });
+
+    socket.emit('chat history', { friendId, messages });
   });
 });
 
-// --- 404 & 錯誤處理 ---
 app.use((req, res) => {
   res.status(404).send("404 Not Found");
 });
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
