@@ -1,4 +1,4 @@
-// ✅ 完整 server.js，支援即時好友在線狀態、已讀訊息、自動加入好友後刷新聊天清單
+// ✅ 完整修改後的 server.js，解決登入後跳回首頁、cookie 問題、支援 Render 部署
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -10,27 +10,30 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const User = require('./models/User');
-const Message = require('./models/Message');
 
+// --- 連接 MongoDB ---
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => console.error('❌ MongoDB Error:', err));
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// --- Session 設定 ---
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false,
+    secure: false, // Render 自動提供 HTTPS，先用 false 測試。之後正式上線可設 true。
     httpOnly: true,
+    sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24
   }
 });
 
+// --- Middleware ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -38,21 +41,22 @@ app.use('/avatars', express.static(path.join(__dirname, 'public/avatars')));
 app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
-require('./config/passport-setup');
 
+require('./config/passport-setup');
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 
+// --- 驗證中介層 ---
 const ensureAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) return next();
   res.redirect('/');
 };
-
 const ensureNicknameSet = (req, res, next) => {
   if (req.user && req.user.isNicknameSet) return next();
   res.redirect('/setup');
 };
 
+// --- Avatar 上傳 ---
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, 'public/avatars');
@@ -66,6 +70,7 @@ const avatarStorage = multer.diskStorage({
 });
 const upload = multer({ storage: avatarStorage });
 
+// --- 路由 ---
 app.get('/', async (req, res) => {
   if (req.isAuthenticated()) {
     const freshUser = await User.findById(req.user._id);
@@ -102,8 +107,6 @@ io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
 
-const onlineUsers = new Map();
-
 io.on('connection', async (socket) => {
   const session = socket.request.session;
   if (!session?.passport?.user) return socket.disconnect(true);
@@ -111,58 +114,34 @@ io.on('connection', async (socket) => {
   const user = await User.findById(session.passport.user);
   if (!user || !user.isNicknameSet) return socket.disconnect(true);
 
-  user.isOnline = true;
-  await user.save();
-  onlineUsers.set(user._id.toString(), socket);
-
   socket.userData = {
     id: user._id.toString(),
     nickname: user.nickname,
+    userCode: user.userCode,
     avatarUrl: user.avatarUrl,
-    friends: user.friends.map(f => f.toString())
+    friends: user.friends.map(id => id.toString())
   };
 
   socket.join(socket.userData.id);
 
-  user.friends.forEach(fid => {
-    io.to(fid.toString()).emit('friend-online', { id: user._id.toString() });
-  });
-
-  socket.on('private message', async ({ toUserId, message }) => {
-    const isOnline = onlineUsers.has(toUserId);
-    const msg = await Message.create({
+  socket.on('private message', ({ toUserId, message }) => {
+    if (!socket.userData.friends.includes(toUserId)) return;
+    const msgData = {
       from: socket.userData.id,
       to: toUserId,
       message,
-      isRead: isOnline
-    });
-
-    const data = {
-      from: socket.userData.id,
-      to: toUserId,
-      message,
-      isRead: isOnline,
-      timestamp: msg.timestamp,
+      timestamp: new Date(),
       avatarUrl: socket.userData.avatarUrl,
       nickname: socket.userData.nickname
     };
-    io.to(toUserId).to(socket.userData.id).emit('private message', data);
-  });
-
-  socket.on('disconnect', async () => {
-    user.isOnline = false;
-    await user.save();
-    onlineUsers.delete(user._id.toString());
-    user.friends.forEach(fid => {
-      io.to(fid.toString()).emit('friend-offline', { id: user._id.toString() });
-    });
+    io.to(toUserId).to(socket.userData.id).emit('private message', msgData);
   });
 });
 
+// --- 404 & 錯誤處理 ---
 app.use((req, res) => {
-  res.status(404).send("Sorry, can't find that!");
+  res.status(404).send("404 Not Found");
 });
-
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
@@ -170,3 +149,4 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server ready at http://localhost:${PORT}`));
+
