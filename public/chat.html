@@ -1,254 +1,210 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>精美聊天室</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <script src="/socket.io/socket.io.js"></script>
+  <title>聊天室</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
-    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', sans-serif; }
-    .app-container { display: flex; height: 100vh; }
+    body {
+      background-color: #f8f9fa;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .chat-container {
+      display: flex;
+      height: 100%;
+    }
     .sidebar {
-      width: 280px; background: #f8f9fa; border-right: 1px solid #dee2e6;
-      display: flex; flex-direction: column;
+      width: 250px;
+      background-color: #fff;
+      border-right: 1px solid #ddd;
+      padding: 1rem;
+      overflow-y: auto;
     }
-    .sidebar h5 { padding: 1rem; margin: 0; border-bottom: 1px solid #dee2e6; }
-    .sidebar .friend-list { flex: 1; overflow-y: auto; padding: 0.5rem 1rem; }
-    .sidebar .friend {
-      display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem;
-      border-radius: 0.5rem; cursor: pointer; transition: background 0.2s;
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
-    .sidebar .friend:hover { background: #e9ecef; }
-    .chat-area { flex: 1; display: flex; flex-direction: column; position: relative; }
-    .chat-header { padding: 1rem; border-bottom: 1px solid #dee2e6; background: #fff; font-weight: bold; }
+    .chat-header, .chat-footer {
+      padding: 1rem;
+      background-color: #fff;
+      border-bottom: 1px solid #ddd;
+    }
     .chat-messages {
-      flex: 1; padding: 1rem; overflow-y: auto; background: #f1f3f5;
-      display: flex; flex-direction: column; gap: 1rem;
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background-color: #e9ecef;
     }
     .message {
-      max-width: 70%; background: white; padding: 0.75rem 1rem;
-      border-radius: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: flex-start;
     }
-    .message.self { align-self: flex-end; background: #d0ebff; }
-    .chat-input { padding: 1rem; border-top: 1px solid #dee2e6; background: #fff; }
-    #top-controls {
-      position: absolute; top: 1rem; right: 1rem;
-      display: flex; gap: 0.75rem;
+    .message.self {
+      flex-direction: row-reverse;
     }
-    #userMenu, #notifMenu {
-      position: absolute; top: 3.5rem; right: 1rem;
-      background: white; border: 1px solid #ccc;
-      border-radius: 6px; padding: 0.75rem 1rem;
-      display: none; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
-      z-index: 100;
+    .message .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin: 0 10px;
     }
-    #addFriendSection { display: none; padding: 0 1rem 1rem 1rem; }
-    .friend .status-wrapper {
+    .message .text {
+      background: white;
+      padding: 0.5rem 1rem;
+      border-radius: 1rem;
+      max-width: 70%;
       position: relative;
     }
-    .friend .status-dot {
+    .status-dot {
       position: absolute;
-      bottom: 0;
-      right: 0;
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      border: 2px solid white;
+      bottom: 2px;
+      right: 2px;
+      border: 1px solid #fff;
+    }
+    .friend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+      cursor: pointer;
+    }
+    .friend-item img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 10px;
+      position: relative;
+    }
+    .friend-item .status-dot {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      border: 1px solid #fff;
     }
   </style>
 </head>
 <body>
-  <div class="app-container">
+  <div class="chat-container">
     <div class="sidebar">
-      <h5>好友列表</h5>
-      <div class="friend-list" id="friend-list"></div>
-      <div class="p-3">
-        <button class="btn btn-success w-100 mb-2" onclick="toggleAddFriend()">新增好友</button>
-        <div id="addFriendSection">
-          <input type="text" id="friendIdInput" class="form-control mb-2" placeholder="輸入用戶ID">
-          <button class="btn btn-primary w-100" onclick="submitAddFriend()">送出</button>
-        </div>
-      </div>
+      <h5>好友清單</h5>
+      <div id="friendList"></div>
     </div>
-
     <div class="chat-area">
-      <div class="chat-header" id="chat-with">請選擇一位好友開始聊天</div>
-      <div class="chat-messages" id="message-log"></div>
-      <form id="chat-form" class="chat-input d-none">
-        <div class="input-group">
-          <input type="text" id="message-input" class="form-control" placeholder="輸入訊息...">
-          <button class="btn btn-primary" type="submit">傳送</button>
+      <div class="chat-header d-flex justify-content-between align-items-center">
+        <h5 id="chatTitle">選擇好友開始聊天</h5>
+        <div>
+          <button id="settingsBtn" class="btn btn-outline-secondary btn-sm">⚙️</button>
+          <button id="logoutBtn" class="btn btn-outline-danger btn-sm">登出</button>
         </div>
-      </form>
-
-      <div id="top-controls">
-        <button class="btn btn-outline-info btn-sm" onclick="toggleNotifMenu()">🔔</button>
-        <button class="btn btn-outline-secondary btn-sm" onclick="toggleUserMenu()">⚙️</button>
-        <a href="/auth/logout" class="btn btn-outline-danger btn-sm">登出</a>
       </div>
-
-      <div id="userMenu">
-        <div><strong>名稱：</strong><span id="my-name"></span></div>
-        <div><strong>用戶ID：</strong><span id="my-code"></span></div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-footer">
+        <form id="chatForm" class="d-flex">
+          <input id="chatInput" class="form-control me-2" placeholder="輸入訊息..." autocomplete="off" />
+          <button class="btn btn-primary">送出</button>
+        </form>
       </div>
-      <div id="notifMenu"></div>
     </div>
   </div>
 
-<script>
-const socket = io();
-let myId, myNickname, myUserCode, myAvatarUrl;
-let friendNicknameMap = {}, friendAvatarMap = {};
-let currentChatTarget = null;
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    let selfId = null;
+    let friends = {};
+    let currentChat = null;
 
-function toggleAddFriend() {
-  const s = document.getElementById('addFriendSection');
-  s.style.display = s.style.display === 'none' || s.style.display === '' ? 'block' : 'none';
-}
-function toggleUserMenu() {
-  const m = document.getElementById('userMenu');
-  m.style.display = m.style.display === 'none' || m.style.display === '' ? 'block' : 'none';
-}
-function toggleNotifMenu() {
-  const m = document.getElementById('notifMenu');
-  m.innerHTML = '';
-  fetch('/api/user/friend-requests')
-    .then(res => res.json())
-    .then(requests => {
-      if (requests.length === 0) m.innerHTML = '<div class="p-2">沒有好友邀請。</div>';
-      else {
-        requests.forEach(req => {
-          const div = document.createElement('div');
-          div.className = 'p-2 border-bottom';
-          div.innerHTML = `
-            <img src="${req.avatarUrl}" width="30" height="30" class="rounded-circle">
-            ${req.nickname}
-            <button onclick="respondFriend('${req._id}', true)">接受</button>
-            <button onclick="respondFriend('${req._id}', false)">拒絕</button>`;
-          m.appendChild(div);
-        });
-      }
-      m.style.display = 'block';
-    });
-}
-function respondFriend(requesterId, accept) {
-  fetch('/api/user/respond-friend-request', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requesterId, accept })
-  }).then(res => res.ok && location.reload());
-}
-function submitAddFriend() {
-  const code = document.getElementById('friendIdInput').value.trim();
-  if (!code) return alert("請輸入用戶ID");
-  fetch('/api/user/send-friend-request', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code })
-  }).then(res => {
-    if (res.ok) alert("✅ 好友邀請已送出！");
-    else res.json().then(d => alert("❌ " + d.message));
-  });
-}
-function updateFriendList(friendsMap) {
-  const list = document.getElementById('friend-list');
-  list.innerHTML = '';
-  for (const [id, info] of Object.entries(friendsMap)) {
-    friendNicknameMap[id] = info.nickname;
-    friendAvatarMap[id] = info.avatarUrl;
-    const dotColor = info.isOnline ? '#28a745' : '#343a40';
-    const el = document.createElement('div');
-    el.className = 'friend';
-    el.dataset.id = id;
-    el.innerHTML = `
-      <div class="status-wrapper">
-        <img src="${info.avatarUrl}" width="36" height="36" class="rounded-circle">
-        <span class="status-dot" style="background:${dotColor};"></span>
-      </div>
-      <span>${info.nickname}</span>`;
-    el.onclick = () => openChat(id, info.nickname);
-    list.appendChild(el);
-  }
-}
-function appendMessage(msg) {
-  const msgBox = document.createElement('div');
-  msgBox.className = 'message' + (msg.from === myId ? ' self' : '');
-  const time = new Date(msg.timestamp).toLocaleString('zh-TW', {
-    year: 'numeric', month: 'numeric', day: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  });
-  msgBox.innerHTML = `
-    <div style="display: flex; gap: 0.5rem;">
-      <img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
-      <div>
-        <div><strong>${msg.nickname}</strong> <span style="font-size:0.8em;color:gray;">${time}</span></div>
-        <div>${msg.message}</div>
-        ${msg.isRead && msg.from === myId ? '<div style="font-size:0.75em;color:green;">✓ 已讀</div>' : ''}
-      </div>
-    </div>
-  `;
-  document.getElementById('message-log').appendChild(msgBox);
-  document.getElementById('message-log').scrollTop = 99999;
-}
-function openChat(userId, nickname) {
-  currentChatTarget = userId;
-  document.getElementById('chat-with').textContent = `與 ${nickname} 聊天中`;
-  document.getElementById('message-log').innerHTML = '';
-  document.getElementById('chat-form').classList.remove('d-none');
-  fetch('/api/user/mark-read', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ withUserId: userId })
-  });
-  fetch(`/api/user/chat-history/${userId}`)
-    .then(res => res.json())
-    .then(messages => {
-      messages.forEach(msg => {
-        const isMe = msg.from === myId;
-        appendMessage({
-          from: msg.from,
-          to: msg.to,
-          message: msg.message,
-          timestamp: msg.timestamp,
-          isRead: msg.isRead,
-          avatarUrl: isMe ? myAvatarUrl : friendAvatarMap[userId],
-          nickname: isMe ? myNickname : friendNicknameMap[userId]
-        });
+    fetch('/api/user/me')
+      .then(res => res.json())
+      .then(user => {
+        selfId = user.id;
+        friends = user.friendsMap || {};
+        renderFriends();
       });
+
+    function renderFriends() {
+      const container = document.getElementById('friendList');
+      container.innerHTML = '';
+      for (const id in friends) {
+        const f = friends[id];
+        const el = document.createElement('div');
+        el.className = 'friend-item';
+        el.dataset.id = id;
+        el.innerHTML = `
+          <div style="position: relative;">
+            <img src="${f.avatarUrl}" alt=""> 
+            <span class="status-dot" style="background: ${f.isOnline ? '#28a745' : '#343a40'};"></span>
+          </div>
+          <span>${f.nickname}</span>
+        `;
+        el.onclick = () => {
+          currentChat = id;
+          document.getElementById('chatTitle').textContent = f.nickname;
+          document.getElementById('chatMessages').innerHTML = '';
+          socket.emit('load history', { friendId: id });
+        };
+        container.appendChild(el);
+      }
+    }
+
+    socket.on('friend-online', ({ id }) => {
+      const dot = document.querySelector(`[data-id='${id}'] .status-dot`);
+      if (dot) dot.style.background = '#28a745';
     });
-}
-document.getElementById('chat-form').addEventListener('submit', e => {
-  e.preventDefault();
-  const msg = document.getElementById('message-input').value.trim();
-  if (!msg || !currentChatTarget) return;
-  socket.emit('private message', { toUserId: currentChatTarget, message: msg });
-  document.getElementById('message-input').value = '';
-});
-socket.on('connect', () => {
-  fetch('/api/user/me')
-    .then(res => res.json())
-    .then(data => {
-      myId = data.id;
-      myNickname = data.nickname;
-      myUserCode = data.userCode;
-      myAvatarUrl = data.avatarUrl;
-      document.getElementById('my-name').textContent = myNickname;
-      document.getElementById('my-code').textContent = myUserCode;
-      updateFriendList(data.friendsMap);
+    socket.on('friend-offline', ({ id }) => {
+      const dot = document.querySelector(`[data-id='${id}'] .status-dot`);
+      if (dot) dot.style.background = '#343a40';
     });
-});
-socket.on('private message', msg => {
-  if (msg.from === currentChatTarget || msg.to === currentChatTarget) appendMessage(msg);
-});
-socket.on('friend-online', ({ id }) => {
-  const el = document.querySelector(`[data-id="${id}"] .status-dot`);
-  if (el) el.style.background = '#28a745';
-});
-socket.on('friend-offline', ({ id }) => {
-  const el = document.querySelector(`[data-id="${id}"] .status-dot`);
-  if (el) el.style.background = '#343a40';
-});
-</script>
+
+    socket.on('chat history', ({ friendId, messages }) => {
+      const box = document.getElementById('chatMessages');
+      box.innerHTML = '';
+      messages.forEach(msg => appendMessage(msg, msg.from === selfId));
+      box.scrollTop = box.scrollHeight;
+    });
+
+    socket.on('private message', msg => {
+      const isSelf = msg.from === selfId;
+      if (msg.from === currentChat || msg.to === currentChat) {
+        appendMessage(msg, isSelf);
+        const box = document.getElementById('chatMessages');
+        box.scrollTop = box.scrollHeight;
+      }
+    });
+
+    function appendMessage(msg, isSelf) {
+      const box = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = 'message' + (isSelf ? ' self' : '');
+      div.innerHTML = `
+        <img class="avatar" src="${msg.avatarUrl || ''}" />
+        <div class="text">
+          ${msg.message}
+          <div style="font-size: 10px; color: gray;">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+        </div>
+      `;
+      box.appendChild(div);
+    }
+
+    document.getElementById('chatForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (message && currentChat) {
+        socket.emit('private message', { toUserId: currentChat, message });
+        input.value = '';
+      }
+    });
+
+    document.getElementById('logoutBtn').onclick = () => {
+      window.location.href = '/logout';
+    };
+  </script>
 </body>
 </html>
