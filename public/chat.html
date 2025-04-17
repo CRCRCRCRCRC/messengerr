@@ -1,144 +1,283 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>精美聊天室</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="/socket.io/socket.io.js"></script>
   <style>
-    body { height: 100vh; margin: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f8f9fa; }
-    .container { display: flex; height: 100%; }
-    .sidebar { width: 260px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-    .sidebar h5 { margin: 1rem; }
-    .tabs { display: flex; }
-    .tabs button { flex: 1; border: none; background: #ececec; padding: 0.5rem; cursor: pointer; }
-    .tabs button.active { background: #fff; font-weight: bold; }
-    .list { flex: 1; overflow-y: auto; padding: 0 1rem; }
-    .item { display: flex; align-items: center; padding: 0.5rem 0; cursor: pointer; }
-    .item .status-wrapper { position: relative; }
-    .item .status-dot { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; }
+    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', sans-serif; }
+    .app-container { display: flex; height: 100vh; }
+    .sidebar {
+      width: 280px; background: #f8f9fa; border-right: 1px solid #dee2e6;
+      display: flex; flex-direction: column;
+    }
+    .sidebar h5 { padding: 1rem; margin: 0; border-bottom: 1px solid #dee2e6; }
+    .sidebar .friend-list { flex: 1; overflow-y: auto; padding: 0.5rem 1rem; }
+    .sidebar .friend {
+      display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem;
+      border-radius: 0.5rem; cursor: pointer; transition: background 0.2s;
+    }
+    .sidebar .friend:hover { background: #e9ecef; }
     .chat-area { flex: 1; display: flex; flex-direction: column; position: relative; }
-    .chat-header { background: #fff; padding: 1rem; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
-    .chat-messages { flex: 1; padding: 1rem; overflow-y: auto; background: #e9ecef; }
-    .chat-footer { background: #fff; padding: .5rem 1rem; display: flex; align-items: center; border-top: 1px solid #ddd; }
-    .chat-footer input[type="file"] { display: none; }
-    .message { display: flex; margin-bottom: 1rem; }
-    .message.self { flex-direction: row-reverse; }
-    .message .avatar { width: 40px; height: 40px; border-radius: 50%; margin: 0 0.5rem; }
-    .message .bubble { background: #fff; padding: .5rem 1rem; border-radius: 1rem; position: relative; max-width: 70%; }
-    .message .bubble img { max-width: 100%; border-radius: .5rem; }
-    .message .bubble .time { font-size: .75rem; color: gray; position: absolute; bottom: -1.2rem; right: .5rem; }
-    .message.self .bubble { background: #d0ebff; }
-    .modal-backdrop.custom { background: rgba(0,0,0,0.5); position: absolute; top: 0; left:0; width:100%; height:100%; }
-    .modal.custom { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); background: #fff; padding: 1rem; border-radius: .5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 300px; }
+    .chat-header { padding: 1rem; border-bottom: 1px solid #dee2e6; background: #fff; font-weight: bold; }
+    .chat-messages {
+      flex: 1; padding: 1rem; overflow-y: auto; background: #f1f3f5;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .message {
+      max-width: 70%; background: white; padding: 0.75rem 1rem;
+      border-radius: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .message.self { align-self: flex-end; background: #d0ebff; }
+    .message img.content-image { max-width: 100%; border-radius: .5rem; margin-top: .5rem; }
+    .message .time { font-size: 0.75em; color: gray; position: absolute; bottom: -1.2rem; right: .5rem; }
+    .message .read-indicator { font-size: 0.75em; color: green; margin-top: .25rem; }
+    .chat-input { padding: 1rem; border-top: 1px solid #dee2e6; background: #fff; }
+    #top-controls {
+      position: absolute; top: 1rem; right: 1rem;
+      display: flex; gap: 0.75rem;
+    }
+    #userMenu, #notifMenu {
+      position: absolute; top: 3.5rem; right: 1rem;
+      background: white; border: 1px solid #ccc;
+      border-radius: 6px; padding: 0.75rem 1rem;
+      display: none; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+      z-index: 100;
+    }
+    #addFriendSection, #createGroupSection { display: none; padding: 0 1rem 1rem 1rem; }
+    .status-wrapper { position: relative; }
+    .status-dot {
+      position: absolute; bottom: 0; right: 0;
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid white;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="app-container">
     <div class="sidebar">
-      <h5>聊天室</h5>
-      <div class="tabs">
-        <button id="tabFriends" class="active" onclick="showTab('friends')">好友</button>
-        <button id="tabGroups" onclick="showTab('groups')">群組</button>
-      </div>
-      <div id="friendsList" class="list"></div>
-      <div id="groupsList" class="list" style="display:none"></div>
-      <button class="btn btn-primary m-3" onclick="openCreateGroup()">建立群組</button>
-    </div>
-    <div class="chat-area">
-      <div class="chat-header">
-        <div id="chatTitle">選擇一個對話</div>
-        <div>
-          <button onclick="openImageUpload()" class="btn btn-outline-secondary btn-sm">📷</button>
-          <button onclick="logout()" class="btn btn-outline-danger btn-sm">登出</button>
+      <h5>聊天清單</h5>
+      <div class="friend-list" id="friend-list"></div>
+      <div class="p-3">
+        <button class="btn btn-success w-100 mb-2" onclick="toggleAddFriend()">新增好友</button>
+        <div id="addFriendSection">
+          <input type="text" id="friendIdInput" class="form-control mb-2" placeholder="輸入用戶ID">
+          <button class="btn btn-primary w-100 mb-2" onclick="submitAddFriend()">送出</button>
+        </div>
+        <button class="btn btn-warning w-100 mb-2" onclick="toggleCreateGroup()">建立群組</button>
+        <div id="createGroupSection">
+          <input type="text" id="groupNameInput" class="form-control mb-2" placeholder="群組名稱">
+          <div id="groupMembersCheckboxes" style="max-height:120px;overflow-y:auto;"></div>
+          <button class="btn btn-primary w-100 mb-2" onclick="submitCreateGroup()">建立</button>
         </div>
       </div>
-      <div id="chatMessages" class="chat-messages"></div>
-      <div class="chat-footer">
-        <button class="btn btn-outline-secondary me-2" onclick="openImageUpload()">📎</button>
-        <input type="text" id="chatInput" class="form-control me-2" placeholder="輸入訊息..." autocomplete="off">
-        <button class="btn btn-primary" onclick="sendMessage()">送出</button>
-        <input type="file" id="imageInput" accept="image/*" onchange="uploadImage(event)">
+    </div>
+
+    <div class="chat-area">
+      <div class="chat-header" id="chat-with">請選擇聊天對象</div>
+      <div class="chat-messages" id="message-log"></div>
+      <form id="chat-form" class="chat-input d-none">
+        <div class="input-group">
+          <button class="btn btn-outline-secondary" type="button" onclick="triggerImageUpload()">📷</button>
+          <input type="file" id="image-input" accept="image/*" style="display:none" onchange="uploadImage(event)">
+          <input type="text" id="message-input" class="form-control" placeholder="輸入訊息...">
+          <button class="btn btn-primary" type="submit">傳送</button>
+        </div>
+      </form>
+
+      <div id="top-controls">
+        <button class="btn btn-outline-info btn-sm" onclick="toggleNotifMenu()">🔔</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="toggleUserMenu()">⚙️</button>
+        <a href="/auth/logout" class="btn btn-outline-danger btn-sm">登出</a>
       </div>
+
+      <div id="userMenu">
+        <div><strong>名稱：</strong><span id="my-name"></span></div>
+        <div><strong>用戶ID：</strong><span id="my-code"></span></div>
+      </div>
+      <div id="notifMenu"></div>
     </div>
   </div>
 
-  <div id="modalBackdrop" class="modal-backdrop custom" style="display:none"></div>
-  <div id="createGroupModal" class="modal custom" style="display:none">
-    <h5>建立群組</h5>
-    <input id="groupNameInput" class="form-control mb-2" placeholder="群組名稱">
-    <div id="groupMembersList" style="max-height:150px; overflow-y:auto; margin-bottom:.5rem"></div>
-    <button class="btn btn-success" onclick="createGroup()">建立</button>
-    <button class="btn btn-secondary ms-2" onclick="closeModal()">取消</button>
-  </div>
+<script>
+const socket = io();
+let myId, myNickname, myUserCode, myAvatarUrl;
+let chats = []; // {id, type:'friend'|'group', name, avatarUrl, isOnline}
+let currentChat = null;
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    let selfId, currentChatId, currentChatType;
-    let friends={}, groups={};
-    fetch('/api/user/me').then(r=>r.json()).then(u=>{
-      selfId=u.id; friends=u.friendsMap; renderFriends(); loadGroups();
+function toggleAddFriend(){
+  const s=document.getElementById('addFriendSection');
+  s.style.display = s.style.display==='none'?'block':'none';
+}
+function toggleCreateGroup(){
+  const s=document.getElementById('createGroupSection');
+  if(s.style.display==='none') {
+    populateGroupMembers(); s.style.display='block';
+  } else s.style.display='none';
+}
+function toggleUserMenu(){
+  const m=document.getElementById('userMenu');
+  m.style.display = m.style.display==='none'?'block':'none';
+}
+function toggleNotifMenu(){
+  const m=document.getElementById('notifMenu');
+  m.innerHTML=''; m.style.display='block';
+  fetch('/api/user/friend-requests').then(r=>r.json()).then(reqs=>{
+    if(!reqs.length) m.innerHTML='<div class="p-2">沒有好友邀請。</div>';
+    reqs.forEach(rq=>{
+      const d=document.createElement('div'); d.className='p-2 border-bottom';
+      d.innerHTML=\`<img src="\${rq.avatarUrl}" width="30" height="30" class="rounded-circle"> \${rq.nickname}
+        <button onclick="respondFriend('\${rq._id}',true)">接受</button>
+        <button onclick="respondFriend('\${rq._id}',false)">拒絕</button>\`;
+      m.appendChild(d);
     });
-
-    function showTab(tab){
-      document.getElementById('friendsList').style.display = tab==='friends'?'block':'none';
-      document.getElementById('groupsList').style.display = tab==='groups'?'block':'none';
-      document.getElementById('tabFriends').classList.toggle('active', tab==='friends');
-      document.getElementById('tabGroups').classList.toggle('active', tab==='groups');
-    }
-    function renderFriends(){
-      const fL=document.getElementById('friendsList'); fL.innerHTML='';
-      for(let id in friends){ let f=friends[id];
-        const el=document.createElement('div'); el.className='item'; el.dataset.id=id;
-        el.innerHTML=`<div class="status-wrapper"><img src="${f.avatarUrl}" width="40" height="40" class="rounded-circle"><span class="status-dot" style="background:${f.isOnline?'#28a745':'#343a40'}"></span></div><span>${f.nickname}</span>`;
-        el.onclick=()=>openChat(id,'friend'); fL.appendChild(el);
-      }
-    }
-    function loadGroups(){ fetch('/api/group/list').then(r=>r.json()).then(g=>{groups=g; renderGroups();}); }
-    function renderGroups(){ const gL=document.getElementById('groupsList'); gL.innerHTML='';
-      for(let gid in groups){ let g=groups[gid];
-        const el=document.createElement('div'); el.className='item'; el.dataset.id=gid;
-        el.innerHTML=`<div class="status-wrapper"><img src="${g.avatarUrl||'/default-group.png'}" width="40" height="40" class="rounded-circle"></div><span>${g.name}</span>`;
-        el.onclick=()=>openChat(gid,'group'); gL.appendChild(el);
-      }
-    }
-    function openChat(id,type){ currentChatId=id; currentChatType=type;
-      document.getElementById('chatTitle').textContent = type==='friend'?friends[id].nickname:groups[id].name;
-      document.getElementById('chatMessages').innerHTML='';
-      socket.emit('load history',{id,type});
-    }
-    socket.on('chat history',data=>{const box=document.getElementById('chatMessages');
-      data.messages.forEach(m=>appendMessage(m,m.from===selfId)); box.scrollTop=box.scrollHeight;
+  });
+}
+function respondFriend(id, ok){
+  fetch('/api/user/respond-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requesterId:id,accept:ok})})
+  .then(_=>location.reload());
+}
+function submitAddFriend(){
+  const c=document.getElementById('friendIdInput').value.trim();
+  if(!c) return alert('請輸入用戶ID');
+  fetch('/api/user/send-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:c})})
+    .then(r=>r.ok?alert('邀請已送出'):r.json().then(d=>alert('❌ '+d.message)));
+}
+function populateGroupMembers(){
+  fetch('/api/user/me').then(r=>r.json()).then(u=>{
+    const cbx=document.getElementById('groupMembersCheckboxes'); cbx.innerHTML='';
+    Object.entries(u.friendsMap).forEach(([id,info])=>{
+      cbx.insertAdjacentHTML('beforeend',
+        `<div><input type="checkbox" id="gm_\${id}" value="\${id}"><label for="gm_\${id}">\${info.nickname}</label></div>`
+      );
     });
-    function sendMessage(){ const txt=document.getElementById('chatInput').value.trim(); if(!txt||!currentChatId) return;
-      socket.emit(currentChatType==='friend'?'private message':'group message',{to:currentChatId, message:txt}); document.getElementById('chatInput').value='';
-    }
-    socket.on('private message',m=>{ if(currentChatType==='friend'&&m.from===currentChatId) appendMessage(m,false); });
-    socket.on('group message',m=>{ if(currentChatType==='group'&&m.groupId===currentChatId) appendMessage(m,false); });
+  });
+}
+function submitCreateGroup(){
+  const name=document.getElementById('groupNameInput').value.trim();
+  if(!name) return alert('請輸入群組名稱');
+  const members=[myId];
+  document.querySelectorAll('#groupMembersCheckboxes input:checked').forEach(i=>members.push(i.value));
+  fetch('/api/group/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,members})})
+    .then(_=>loadChats());
+}
 
-    function appendMessage(m,isSelf){ const box=document.getElementById('chatMessages'); const div=document.createElement('div'); div.className='message'+(isSelf?' self':'');
-      let content = m.imageUrl?`<img src="${m.imageUrl}" />`:`<span>${m.message}</span>`;
-      div.innerHTML=`<img src="${m.avatarUrl}" class="avatar"><div class="bubble">${content}<div class="time">${new Date(m.timestamp).toLocaleTimeString()}</div></div>`;
-      box.appendChild(div); box.scrollTop=box.scrollHeight;
-    }
-    function openImageUpload(){ document.getElementById('imageInput').click(); }
-    function uploadImage(e){ const file=e.target.files[0]; if(!file||!currentChatId) return;
-      const form=new FormData(); form.append('image',file); form.append('to',currentChatId); form.append('type',currentChatType);
-      fetch('/api/upload-image',{method:'POST',body:form}).then(r=>r.json()).then(m=>appendMessage(m,true));
-    }
-    // group modal
-    function openCreateGroup(){document.getElementById('modalBackdrop').style.display='block'; document.getElementById('createGroupModal').style.display='block'; loadFriendsForGroup(); }
-    function closeModal(){document.getElementById('modalBackdrop').style.display='none'; document.getElementById('createGroupModal').style.display='none';}
-    function loadFriendsForGroup(){ const list=document.getElementById('groupMembersList'); list.innerHTML=''; for(let id in friends){
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.value=id; cb.id='cb'+id;
-      list.appendChild(cb); list.appendChild(document.createTextNode(friends[id].nickname)); list.appendChild(document.createElement('br'));
-    }}
-    function createGroup(){ const name=document.getElementById('groupNameInput').value.trim(); const cbs=document.querySelectorAll('#groupMembersList input:checked'); const members=[selfId]; cbs.forEach(cb=>members.push(cb.value));
-      fetch('/api/group/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,members})})
-        .then(()=>{closeModal(); loadGroups();});
-    }
-    function logout(){ window.location.href='/logout'; }
-  </script>
+// 載入好友 & 群組清單
+function loadChats(){
+  chats=[];
+  Promise.all([
+    fetch('/api/user/me').then(r=>r.json()),
+    fetch('/api/group/list').then(r=>r.json())
+  ]).then(([u,gs])=>{
+    // 好友
+    Object.entries(u.friendsMap).forEach(([id,info])=>{
+      chats.push({id,type:'friend',name:info.nickname,avatarUrl:info.avatarUrl,isOnline:info.isOnline});
+    });
+    // 群組
+    gs.forEach(g=>{
+      chats.push({id:g._id,type:'group',name:g.name,avatarUrl:g.avatarUrl||'/default-group.png'});
+    });
+    renderChatList();
+  });
+}
+function renderChatList(){
+  const list=document.getElementById('friend-list'); list.innerHTML='';
+  chats.forEach(c=>{
+    const el=document.createElement('div'); el.className='friend'; el.dataset.id=c.id+'|'+c.type;
+    let dot='';
+    if(c.type==='friend') dot=\`<span class="status-dot" style="background:\${c.isOnline?'#28a745':'#343a40'}"></span>\`;
+    el.innerHTML=\`
+      <div class="status-wrapper"><img src="\${c.avatarUrl}" width="36" height="36" class="rounded-circle">\${dot}</div>
+      <span>\${c.name}</span>
+    \`;
+    el.onclick=()=>openChat(c.id,c.type,c.name);
+    list.appendChild(el);
+  });
+}
+
+function openChat(id,type,name){
+  currentChat={id,type};
+  document.getElementById('chat-with').textContent= type==='friend'? \`與 \${name} 聊天中\`: name;
+  document.getElementById('message-log').innerHTML='';
+  document.getElementById('chat-form').classList.remove('d-none');
+  socket.emit('load history',{id,type});
+}
+
+// 圖片上傳
+function triggerImageUpload(){ document.getElementById('image-input').click(); }
+function uploadImage(e){
+  const file=e.target.files[0];
+  if(!file||!currentChat) return;
+  const form=new FormData();
+  form.append('image',file);
+  form.append('to',currentChat.id);
+  form.append('type',currentChat.type);
+  fetch('/api/upload-image',{method:'POST',body:form})
+    .then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
+}
+
+// 接收 & 顯示訊息
+socket.on('connect',()=>{
+  loadChats();
+  socket.on('chat history',data=>{
+    data.messages.forEach(m=>appendMessage(m,m.from===myId)); 
+    document.getElementById('message-log').scrollTop=1e9;
+  });
+  socket.on('private message',m=>{ if(currentChat?.id===m.from) appendMessage(m,false); });
+  socket.on('group message',m=>{ if(currentChat?.type==='group'&&currentChat.id===m.groupId) appendMessage(m,false); });
+  socket.on('friend-online',({id})=>{
+    const el=document.querySelector(`[data-id="\${id}|friend"] .status-dot`);
+    if(el) el.style.background='#28a745';
+  });
+  socket.on('friend-offline',({id})=>{
+    const el=document.querySelector(`[data-id="\${id}|friend"] .status-dot`);
+    if(el) el.style.background='#343a40';
+  });
+});
+
+// 發送文字
+document.getElementById('chat-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const txt=document.getElementById('message-input').value.trim();
+  if(!txt||!currentChat) return;
+  if(currentChat.type==='friend'){
+    socket.emit('private message',{ toUserId:currentChat.id, message:txt });
+  } else {
+    socket.emit('group message',{ to:currentChat.id, message:txt });
+  }
+  document.getElementById('message-input').value='';
+});
+
+// 顯示訊息
+function appendMessage(msg,isSelf){
+  const box=document.getElementById('message-log');
+  const div=document.createElement('div');
+  div.className='message'+(isSelf?' self':'');
+  let content='';
+  if(msg.imageUrl){
+    content=`<img src="\${msg.imageUrl}" class="content-image">`;
+  } else {
+    content=msg.message;
+  }
+  div.innerHTML=\`
+    <div style="display:flex;gap:.5rem;">
+      <img src="\${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
+      <div>
+        <div>\${msg.nickname} <span style="font-size:.75em;color:gray;">\${new Date(msg.timestamp).toLocaleTimeString()}</span></div>
+        <div class="bubble-content">\${content}</div>
+        \${msg.read && msg.from===myId?'<div class="read-indicator">✓ 已讀</div>':''}
+      </div>
+    </div>
+  \`;
+  box.appendChild(div);
+  box.scrollTop=1e9;
+}
+
+// 登出
+function logout(){ location.href='/auth/logout'; }
+</script>
 </body>
 </html>
