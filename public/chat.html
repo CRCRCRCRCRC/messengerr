@@ -132,7 +132,8 @@ function toggleNotifMenu(){
     if(reqs.length === 0){
       m.innerHTML = '<div class="p-2">沒有好友邀請。</div>';
     }
-    reqs.forEach(function(rq){
+    for(var i=0;i<reqs.length;i++){
+      var rq = reqs[i];
       var d = document.createElement('div');
       d.className = 'p-2 border-bottom';
       d.innerHTML = '<img src="'+rq.avatarUrl+'" width="30" height="30" class="rounded-circle"> '
@@ -140,7 +141,7 @@ function toggleNotifMenu(){
         + '<button onclick="respondFriend(\''+rq._id+'\',true)">接受</button>'
         + '<button onclick="respondFriend(\''+rq._id+'\',false)">拒絕</button>';
       m.appendChild(d);
-    });
+    }
   });
 }
 function respondFriend(id, ok){
@@ -171,22 +172,23 @@ function populateGroupMembers(){
   .then(function(u){
     var cbx = document.getElementById('groupMembersCheckboxes');
     cbx.innerHTML = '';
-    Object.keys(u.friendsMap).forEach(function(id){
-      var info = u.friendsMap[id];
-      cbx.insertAdjacentHTML('beforeend',
-        '<div><input type="checkbox" id="gm_'+id+'" value="'+id+'">'
-        +'<label for="gm_'+id+'">'+info.nickname+'</label></div>'
-      );
-    });
+    var keys = Object.keys(u.friendsMap);
+    for(var i=0;i<keys.length;i++){
+      var id = keys[i], info = u.friendsMap[id];
+      var html = '<div><input type="checkbox" id="gm_'+id+'" value="'+id+'">'
+        +'<label for="gm_'+id+'">'+info.nickname+'</label></div>';
+      cbx.insertAdjacentHTML('beforeend', html);
+    }
   });
 }
 function submitCreateGroup(){
   var name = document.getElementById('groupNameInput').value.trim();
   if(!name) return alert('請輸入群組名稱');
   var members = [myId];
-  document.querySelectorAll('#groupMembersCheckboxes input:checked').forEach(function(i){
-    members.push(i.value);
-  });
+  var checks = document.querySelectorAll('#groupMembersCheckboxes input:checked');
+  for(var i=0;i<checks.length;i++){
+    members.push(checks[i].value);
+  }
   fetch('/api/group/create',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -202,25 +204,29 @@ function loadChats(){
     fetch('/api/group/list').then(function(r){ return r.json(); })
   ]).then(function(vals){
     var u = vals[0], gs = vals[1];
-    // 好友
-    Object.keys(u.friendsMap).forEach(function(id){
-      var info = u.friendsMap[id];
-      chats.push({ id:id, type:'friend',
-        name:info.nickname, avatarUrl:info.avatarUrl,
-        isOnline:info.isOnline });
-    });
-    // 群組
-    gs.forEach(function(g){
-      chats.push({ id:g._id, type:'group',
-        name:g.name, avatarUrl:g.avatarUrl||'/default-group.png' });
-    });
+    var keys = Object.keys(u.friendsMap);
+    for(var i=0;i<keys.length;i++){
+      var id = keys[i], info = u.friendsMap[id];
+      chats.push({ 
+        id:id, type:'friend', name:info.nickname, 
+        avatarUrl:info.avatarUrl, isOnline:info.isOnline 
+      });
+    }
+    for(var j=0;j<gs.length;j++){
+      var g=gs[j];
+      chats.push({ 
+        id:g._id, type:'group', name:g.name, 
+        avatarUrl:(g.avatarUrl||'/default-group.png') 
+      });
+    }
     renderChatList();
   });
 }
 function renderChatList(){
   var list = document.getElementById('friend-list');
   list.innerHTML = '';
-  chats.forEach(function(c){
+  for(var i=0;i<chats.length;i++){
+    var c = chats[i];
     var el = document.createElement('div');
     el.className = 'friend';
     el.dataset.id = c.id + '|' + c.type;
@@ -229,21 +235,27 @@ function renderChatList(){
       dotHtml = '<span class="status-dot" style="background:'+
         (c.isOnline?'#28a745':'#343a40')+'"></span>';
     }
-    el.innerHTML = '<div class="status-wrapper"><img src="'+c.avatarUrl+
-      '" width="36" height="36" class="rounded-circle">'+dotHtml+
-      '</div><span>'+c.name+'</span>';
-    el.onclick = function(){
-      openChat(c.id, c.type, c.name);
-    };
+    el.innerHTML = '<div class="status-wrapper"><img src="'+c.avatarUrl
+      +'" width="36" height="36" class="rounded-circle">'+ dotHtml
+      +'</div><span>'+c.name+'</span>';
+    (function(chat){
+      el.onclick = function(){
+        openChat(chat.id, chat.type, chat.name);
+      };
+    })(c);
     list.appendChild(el);
-  });
+  }
 }
 
 // 開啟聊天
 function openChat(id, type, name){
   currentChat = { id:id, type:type };
-  document.getElementById('chat-with').textContent =
-    (type==='friend' ? '與 '+name+' 聊天中' : name);
+  var header = document.getElementById('chat-with');
+  if(type==='friend'){
+    header.textContent = '與 ' + name + ' 聊天中';
+  } else {
+    header.textContent = name;
+  }
   document.getElementById('message-log').innerHTML = '';
   document.getElementById('chat-form').classList.remove('d-none');
   socket.emit('load history',{ id:id, type:type });
@@ -267,14 +279,14 @@ function uploadImage(e){
     });
 }
 
-// 接收 & 顯示訊息
+// 連線後設定事件
 socket.on('connect', function(){
   loadChats();
 
   socket.on('chat history', function(data){
-    data.messages.forEach(function(m){
-      appendMessage(m, m.from===myId);
-    });
+    for(var i=0;i<data.messages.length;i++){
+      appendMessage(data.messages[i], data.messages[i].from===myId);
+    }
     document.getElementById('message-log').scrollTop = 1e9;
   });
 
@@ -298,7 +310,7 @@ socket.on('connect', function(){
     if(el) el.style.background = '#28a745';
   });
   socket.on('friend-offline', function(evt){
-    var sel = '[data-id="'+evt.id+'|friend"] .status-dot';
+    var sel = '[data-id="'+evt.id+'|friend"] .status-dot'; 
     var el = document.querySelector(sel);
     if(el) el.style.background = '#343a40';
   });
@@ -309,10 +321,21 @@ document.getElementById('chat-form').addEventListener('submit', function(e){
   e.preventDefault();
   var txt = document.getElementById('message-input').value.trim();
   if(!txt || !currentChat) return;
+  var now = new Date().toISOString();
   if(currentChat.type==='friend'){
     socket.emit('private message',{ toUserId:currentChat.id, message:txt });
+    appendMessage({
+      from: myId, to: currentChat.id, message: txt,
+      timestamp: now, avatarUrl: myAvatarUrl,
+      nickname: myNickname, read: false
+    }, true);
   } else {
-    socket.emit('group message',{ to:currentChat.id, message:txt });
+    socket.emit('group message',{ to: currentChat.id, message:txt });
+    appendMessage({
+      from: myId, groupId: currentChat.id, message: txt,
+      timestamp: now, avatarUrl: myAvatarUrl,
+      nickname: myNickname, read: false
+    }, true);
   }
   document.getElementById('message-input').value = '';
 });
@@ -328,20 +351,23 @@ function appendMessage(msg, isSelf){
   } else {
     content = msg.message;
   }
-  var inner = '<div style="display:flex;gap:.5rem;">'
+  var html = '<div style="display:flex;gap:.5rem;">'
     + '<img src="'+msg.avatarUrl+'" width="36" height="36" class="rounded-circle">'
     + '<div><div>'+msg.nickname
     + ' <span style="font-size:.75em;color:gray;">'
     + new Date(msg.timestamp).toLocaleTimeString()
-    + '</span></div><div>'+content+'</div>'
-    + (msg.read && msg.from===myId ? '<div class="read-indicator">✓ 已讀</div>' : '')
-    + '</div></div>';
-  div.innerHTML = inner;
+    + '</span></div><div>'+content+'</div>';
+  if(msg.read && msg.from===myId){
+    html += '<div class="read-indicator">✓ 已讀</div>';
+  }
+  html += '</div></div>';
+  div.innerHTML = html;
   box.appendChild(div);
+  box.scrollTop = 1e9;
 }
 
 // 登出
-function logout(){ location.href='/auth/logout'; }
+function logout(){ location.href = '/auth/logout'; }
 
 // 取得自己資訊
 fetch('/api/user/me').then(function(r){ return r.json(); })
