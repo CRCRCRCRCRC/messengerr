@@ -103,181 +103,256 @@
   </div>
 
 <script>
-const socket = io();
-let myId, myNickname, myUserCode, myAvatarUrl;
-let chats = []; // {id, type:'friend'|'group', name, avatarUrl, isOnline}
-let currentChat = null;
+var socket = io();
+var myId, myNickname, myUserCode, myAvatarUrl;
+var chats = [], currentChat = null;
 
+// 切換 UI
 function toggleAddFriend(){
-  const s=document.getElementById('addFriendSection');
-  s.style.display = s.style.display==='none'?'block':'none';
+  var s = document.getElementById('addFriendSection');
+  s.style.display = (s.style.display === 'block') ? 'none' : 'block';
 }
 function toggleCreateGroup(){
-  const s=document.getElementById('createGroupSection');
-  if(s.style.display==='none') {
-    populateGroupMembers(); s.style.display='block';
-  } else s.style.display='none';
+  var s = document.getElementById('createGroupSection');
+  if(s.style.display !== 'block'){
+    populateGroupMembers();
+    s.style.display = 'block';
+  } else s.style.display = 'none';
 }
 function toggleUserMenu(){
-  const m=document.getElementById('userMenu');
-  m.style.display = m.style.display==='none'?'block':'none';
+  var m = document.getElementById('userMenu');
+  m.style.display = (m.style.display === 'block') ? 'none' : 'block';
 }
 function toggleNotifMenu(){
-  const m=document.getElementById('notifMenu');
-  m.innerHTML=''; m.style.display='block';
-  fetch('/api/user/friend-requests').then(r=>r.json()).then(reqs=>{
-    if(!reqs.length) m.innerHTML='<div class="p-2">沒有好友邀請。</div>';
-    reqs.forEach(rq=>{
-      const d=document.createElement('div'); d.className='p-2 border-bottom';
-      d.innerHTML=\`<img src="\${rq.avatarUrl}" width="30" height="30" class="rounded-circle"> \${rq.nickname}
-        <button onclick="respondFriend('\${rq._id}',true)">接受</button>
-        <button onclick="respondFriend('\${rq._id}',false)">拒絕</button>\`;
+  var m = document.getElementById('notifMenu');
+  m.innerHTML = '';
+  m.style.display = 'block';
+  fetch('/api/user/friend-requests').then(function(r){ return r.json(); })
+  .then(function(reqs){
+    if(reqs.length === 0){
+      m.innerHTML = '<div class="p-2">沒有好友邀請。</div>';
+    }
+    reqs.forEach(function(rq){
+      var d = document.createElement('div');
+      d.className = 'p-2 border-bottom';
+      d.innerHTML = '<img src="'+rq.avatarUrl+'" width="30" height="30" class="rounded-circle"> '
+        + rq.nickname
+        + '<button onclick="respondFriend(\''+rq._id+'\',true)">接受</button>'
+        + '<button onclick="respondFriend(\''+rq._id+'\',false)">拒絕</button>';
       m.appendChild(d);
     });
   });
 }
 function respondFriend(id, ok){
-  fetch('/api/user/respond-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requesterId:id,accept:ok})})
-  .then(_=>location.reload());
+  fetch('/api/user/respond-friend-request',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({requesterId:id,accept:ok})
+  }).then(function(){ location.reload(); });
 }
+
+// 新增好友
 function submitAddFriend(){
-  const c=document.getElementById('friendIdInput').value.trim();
+  var c = document.getElementById('friendIdInput').value.trim();
   if(!c) return alert('請輸入用戶ID');
-  fetch('/api/user/send-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:c})})
-    .then(r=>r.ok?alert('邀請已送出'):r.json().then(d=>alert('❌ '+d.message)));
+  fetch('/api/user/send-friend-request',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({code:c})
+  }).then(function(r){
+    if(r.ok) alert('邀請已送出');
+    else r.json().then(function(d){ alert('❌ '+d.message); });
+  });
 }
+
+// 建立群組
 function populateGroupMembers(){
-  fetch('/api/user/me').then(r=>r.json()).then(u=>{
-    const cbx=document.getElementById('groupMembersCheckboxes'); cbx.innerHTML='';
-    Object.entries(u.friendsMap).forEach(([id,info])=>{
+  fetch('/api/user/me').then(function(r){ return r.json(); })
+  .then(function(u){
+    var cbx = document.getElementById('groupMembersCheckboxes');
+    cbx.innerHTML = '';
+    Object.keys(u.friendsMap).forEach(function(id){
+      var info = u.friendsMap[id];
       cbx.insertAdjacentHTML('beforeend',
-        `<div><input type="checkbox" id="gm_\${id}" value="\${id}"><label for="gm_\${id}">\${info.nickname}</label></div>`
+        '<div><input type="checkbox" id="gm_'+id+'" value="'+id+'">'
+        +'<label for="gm_'+id+'">'+info.nickname+'</label></div>'
       );
     });
   });
 }
 function submitCreateGroup(){
-  const name=document.getElementById('groupNameInput').value.trim();
+  var name = document.getElementById('groupNameInput').value.trim();
   if(!name) return alert('請輸入群組名稱');
-  const members=[myId];
-  document.querySelectorAll('#groupMembersCheckboxes input:checked').forEach(i=>members.push(i.value));
-  fetch('/api/group/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,members})})
-    .then(_=>loadChats());
+  var members = [myId];
+  document.querySelectorAll('#groupMembersCheckboxes input:checked').forEach(function(i){
+    members.push(i.value);
+  });
+  fetch('/api/group/create',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name:name,members:members})
+  }).then(function(){ loadChats(); });
 }
 
-// 載入好友 & 群組清單
+// 載入好友與群組
 function loadChats(){
-  chats=[];
+  chats = [];
   Promise.all([
-    fetch('/api/user/me').then(r=>r.json()),
-    fetch('/api/group/list').then(r=>r.json())
-  ]).then(([u,gs])=>{
+    fetch('/api/user/me').then(function(r){ return r.json(); }),
+    fetch('/api/group/list').then(function(r){ return r.json(); })
+  ]).then(function(vals){
+    var u = vals[0], gs = vals[1];
     // 好友
-    Object.entries(u.friendsMap).forEach(([id,info])=>{
-      chats.push({id,type:'friend',name:info.nickname,avatarUrl:info.avatarUrl,isOnline:info.isOnline});
+    Object.keys(u.friendsMap).forEach(function(id){
+      var info = u.friendsMap[id];
+      chats.push({ id:id, type:'friend',
+        name:info.nickname, avatarUrl:info.avatarUrl,
+        isOnline:info.isOnline });
     });
     // 群組
-    gs.forEach(g=>{
-      chats.push({id:g._id,type:'group',name:g.name,avatarUrl:g.avatarUrl||'/default-group.png'});
+    gs.forEach(function(g){
+      chats.push({ id:g._id, type:'group',
+        name:g.name, avatarUrl:g.avatarUrl||'/default-group.png' });
     });
     renderChatList();
   });
 }
 function renderChatList(){
-  const list=document.getElementById('friend-list'); list.innerHTML='';
-  chats.forEach(c=>{
-    const el=document.createElement('div'); el.className='friend'; el.dataset.id=c.id+'|'+c.type;
-    let dot='';
-    if(c.type==='friend') dot=\`<span class="status-dot" style="background:\${c.isOnline?'#28a745':'#343a40'}"></span>\`;
-    el.innerHTML=\`
-      <div class="status-wrapper"><img src="\${c.avatarUrl}" width="36" height="36" class="rounded-circle">\${dot}</div>
-      <span>\${c.name}</span>
-    \`;
-    el.onclick=()=>openChat(c.id,c.type,c.name);
+  var list = document.getElementById('friend-list');
+  list.innerHTML = '';
+  chats.forEach(function(c){
+    var el = document.createElement('div');
+    el.className = 'friend';
+    el.dataset.id = c.id + '|' + c.type;
+    var dotHtml = '';
+    if(c.type==='friend'){
+      dotHtml = '<span class="status-dot" style="background:'+
+        (c.isOnline?'#28a745':'#343a40')+'"></span>';
+    }
+    el.innerHTML = '<div class="status-wrapper"><img src="'+c.avatarUrl+
+      '" width="36" height="36" class="rounded-circle">'+dotHtml+
+      '</div><span>'+c.name+'</span>';
+    el.onclick = function(){
+      openChat(c.id, c.type, c.name);
+    };
     list.appendChild(el);
   });
 }
 
-function openChat(id,type,name){
-  currentChat={id,type};
-  document.getElementById('chat-with').textContent= type==='friend'? \`與 \${name} 聊天中\`: name;
-  document.getElementById('message-log').innerHTML='';
+// 開啟聊天
+function openChat(id, type, name){
+  currentChat = { id:id, type:type };
+  document.getElementById('chat-with').textContent =
+    (type==='friend' ? '與 '+name+' 聊天中' : name);
+  document.getElementById('message-log').innerHTML = '';
   document.getElementById('chat-form').classList.remove('d-none');
-  socket.emit('load history',{id,type});
+  socket.emit('load history',{ id:id, type:type });
 }
 
 // 圖片上傳
-function triggerImageUpload(){ document.getElementById('image-input').click(); }
+function triggerImageUpload(){
+  document.getElementById('image-input').click();
+}
 function uploadImage(e){
-  const file=e.target.files[0];
-  if(!file||!currentChat) return;
-  const form=new FormData();
-  form.append('image',file);
-  form.append('to',currentChat.id);
-  form.append('type',currentChat.type);
-  fetch('/api/upload-image',{method:'POST',body:form})
-    .then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
+  var file = e.target.files[0];
+  if(!file || !currentChat) return;
+  var form = new FormData();
+  form.append('image', file);
+  form.append('to', currentChat.id);
+  form.append('type', currentChat.type);
+  fetch('/api/upload-image',{ method:'POST', body:form })
+    .then(function(r){ return r.json(); })
+    .then(function(m){
+      appendMessage(m, m.from===myId);
+    });
 }
 
 // 接收 & 顯示訊息
-socket.on('connect',()=>{
+socket.on('connect', function(){
   loadChats();
-  socket.on('chat history',data=>{
-    data.messages.forEach(m=>appendMessage(m,m.from===myId)); 
-    document.getElementById('message-log').scrollTop=1e9;
+
+  socket.on('chat history', function(data){
+    data.messages.forEach(function(m){
+      appendMessage(m, m.from===myId);
+    });
+    document.getElementById('message-log').scrollTop = 1e9;
   });
-  socket.on('private message',m=>{ if(currentChat?.id===m.from) appendMessage(m,false); });
-  socket.on('group message',m=>{ if(currentChat?.type==='group'&&currentChat.id===m.groupId) appendMessage(m,false); });
-  socket.on('friend-online',({id})=>{
-    const el=document.querySelector(`[data-id="\${id}|friend"] .status-dot`);
-    if(el) el.style.background='#28a745';
+
+  socket.on('private message', function(m){
+    if(currentChat && currentChat.type==='friend' && m.from===currentChat.id){
+      appendMessage(m, false);
+      document.getElementById('message-log').scrollTop = 1e9;
+    }
   });
-  socket.on('friend-offline',({id})=>{
-    const el=document.querySelector(`[data-id="\${id}|friend"] .status-dot`);
-    if(el) el.style.background='#343a40';
+
+  socket.on('group message', function(m){
+    if(currentChat && currentChat.type==='group' && m.groupId===currentChat.id){
+      appendMessage(m, false);
+      document.getElementById('message-log').scrollTop = 1e9;
+    }
+  });
+
+  socket.on('friend-online', function(evt){
+    var sel = '[data-id="'+evt.id+'|friend"] .status-dot';
+    var el = document.querySelector(sel);
+    if(el) el.style.background = '#28a745';
+  });
+  socket.on('friend-offline', function(evt){
+    var sel = '[data-id="'+evt.id+'|friend"] .status-dot';
+    var el = document.querySelector(sel);
+    if(el) el.style.background = '#343a40';
   });
 });
 
 // 發送文字
-document.getElementById('chat-form').addEventListener('submit',e=>{
+document.getElementById('chat-form').addEventListener('submit', function(e){
   e.preventDefault();
-  const txt=document.getElementById('message-input').value.trim();
-  if(!txt||!currentChat) return;
+  var txt = document.getElementById('message-input').value.trim();
+  if(!txt || !currentChat) return;
   if(currentChat.type==='friend'){
     socket.emit('private message',{ toUserId:currentChat.id, message:txt });
   } else {
     socket.emit('group message',{ to:currentChat.id, message:txt });
   }
-  document.getElementById('message-input').value='';
+  document.getElementById('message-input').value = '';
 });
 
 // 顯示訊息
-function appendMessage(msg,isSelf){
-  const box=document.getElementById('message-log');
-  const div=document.createElement('div');
-  div.className='message'+(isSelf?' self':'');
-  let content='';
+function appendMessage(msg, isSelf){
+  var box = document.getElementById('message-log');
+  var div = document.createElement('div');
+  div.className = 'message' + (isSelf ? ' self' : '');
+  var content = '';
   if(msg.imageUrl){
-    content=`<img src="\${msg.imageUrl}" class="content-image">`;
+    content = '<img src="'+msg.imageUrl+'" class="content-image">';
   } else {
-    content=msg.message;
+    content = msg.message;
   }
-  div.innerHTML=\`
-    <div style="display:flex;gap:.5rem;">
-      <img src="\${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
-      <div>
-        <div>\${msg.nickname} <span style="font-size:.75em;color:gray;">\${new Date(msg.timestamp).toLocaleTimeString()}</span></div>
-        <div class="bubble-content">\${content}</div>
-        \${msg.read && msg.from===myId?'<div class="read-indicator">✓ 已讀</div>':''}
-      </div>
-    </div>
-  \`;
+  var inner = '<div style="display:flex;gap:.5rem;">'
+    + '<img src="'+msg.avatarUrl+'" width="36" height="36" class="rounded-circle">'
+    + '<div><div>'+msg.nickname
+    + ' <span style="font-size:.75em;color:gray;">'
+    + new Date(msg.timestamp).toLocaleTimeString()
+    + '</span></div><div>'+content+'</div>'
+    + (msg.read && msg.from===myId ? '<div class="read-indicator">✓ 已讀</div>' : '')
+    + '</div></div>';
+  div.innerHTML = inner;
   box.appendChild(div);
-  box.scrollTop=1e9;
 }
 
 // 登出
 function logout(){ location.href='/auth/logout'; }
+
+// 取得自己資訊
+fetch('/api/user/me').then(function(r){ return r.json(); })
+.then(function(u){
+  myId = u.id;
+  myNickname = u.nickname;
+  myUserCode = u.userCode;
+  myAvatarUrl = u.avatarUrl;
+  document.getElementById('my-name').textContent = myNickname;
+  document.getElementById('my-code').textContent = myUserCode;
+});
 </script>
 </body>
 </html>
