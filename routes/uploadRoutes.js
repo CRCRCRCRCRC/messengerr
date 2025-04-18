@@ -1,67 +1,79 @@
-// routes/uploadRoutes.js
-
 const router = require('express').Router();
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
+const path  = require('path');
+const fs    = require('fs');
 const Message = require('../models/Message');
-const Group = require('../models/Group');
+const Group   = require('../models/Group');
 
-// Middleware：確認已登入
-function ensureAuthenticated(req, res, next) {
+// 驗證
+function ensureAuth(req, res, next) {
   if (req.isAuthenticated()) return next();
-  return res.status(401).json({ message: 'Unauthorized' });
+  res.status(401).json({ message: 'Unauthorized' });
 }
-router.use(ensureAuthenticated);
+router.use(ensureAuth);
 
-// 確保 public/uploads 目錄存在
-const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// 確保 uploads 資料夾
+const UPLOAD_DIR = path.join(__dirname, '../public/uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Multer 存储設定
+// multer 設定
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename:    (req, file, cb) => cb(null, Date.now() + '_' + file.originalname)
+  destination: (_, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (_, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + ext);
+  }
 });
 const upload = multer({ storage });
 
 // POST /api/upload-image
 router.post('/', upload.single('image'), async (req, res) => {
-  try {
-    const { to, type } = req.body;             // type: 'friend' or 'group'
-    const imageUrl    = '/uploads/' + req.file.filename;
-    const fromId      = req.user._id.toString();
-    const io          = req.app.get('io');
+  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-    // 構造要回傳給前端的資料
-    const payload = {
-      from:      fromId,
-      timestamp: new Date(),
-      imageUrl:  imageUrl,
-      avatarUrl: req.user.avatarUrl,
-      nickname:  req.user.nickname
-    };
+  const { to, type } = req.body;
+  const imageUrl = '/uploads/' + req.file.filename;
 
-    if (type === 'friend') {
-      await Message.create({ from: fromId, to, imageUrl });
-      payload.to = to;
-      io.to(to).to(fromId).emit('private message', payload);
-    } else {
-      await Message.create({ from: fromId, group: to, imageUrl });
-      payload.groupId = to;
-      const group = await Group.findById(to);
-      group.members.forEach(memberId => {
-        io.to(memberId.toString()).emit('group message', payload);
-      });
-    }
+  const data = {
+    from:      req.user._id,
+    message:   null,
+    imageUrl,
+    timestamp: new Date(),
+    read:      false,
+    recalled:  false
+  };
+  if (type === 'friend') data.to = to;
+  else data.group = to;
 
-    return res.json(payload);
-  } catch (err) {
-    console.error('❌ 圖片上傳錯誤：', err);
-    return res.status(500).json({ message: 'Upload error' });
+  const msg = await Message.create(data);
+
+  const payload = {
+    id:        msg._id.toString(),
+    from:      msg.from.toString(),
+    to:        msg.to?.toString(),
+    groupId:   msg.group?.toString(),
+    message:   null,
+    imageUrl:  msg.imageUrl,
+    timestamp: msg.timestamp,
+    read:      msg.read,
+    recalled:  msg.recalled,
+    avatarUrl: req.user.avatarUrl,
+    nickname:  req.user.nickname
+  };
+
+  // 推送
+  const io = req.app.get('io');
+  if (type === 'friend') {
+    io.to(to).to(req.user._id.toString()).emit('private message', payload);
+  } else {
+    const grp = await Group.findById(to);
+    grp.members.forEach(mid => {
+      io.to(mid.toString()).emit('group message', payload);
+    });
   }
+
+  res.json(payload);
 });
 
 module.exports = router;
