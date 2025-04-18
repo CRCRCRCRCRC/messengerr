@@ -1,13 +1,16 @@
+// models/Message.js
+
 const mongoose = require('mongoose');
 
-const messageSchema = new mongoose.Schema({
-  from: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  to: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },        // 私聊對象
-  group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },    // 群組對象
-  message: { type: String },                                        // 文字內容
-  imageUrl: { type: String },                                       // 圖片 URL
+const MessageSchema = new mongoose.Schema({
+  from:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  to:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  group:     { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
+  message:   { type: String },
+  imageUrl:  { type: String },
   timestamp: { type: Date, default: Date.now },
-  read: { type: Boolean, default: false }
+  read:      { type: Boolean, default: false },
+  recalled:  { type: Boolean, default: false }
 });
 
-module.exports = mongoose.model('Message', messageSchema);
+module.exports = mongoose.model('Message', MessageSchema);
