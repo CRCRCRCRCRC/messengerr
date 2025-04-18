@@ -1,96 +1,107 @@
-// routes/userRoutes.js
-
 const router = require('express').Router();
-const User = require('../models/User');
-const Message = require('../models/Message');
-const FriendRequest = require('../models/FriendRequest');
+const User   = require('../models/User');
+const FriendRequest = require('../models/FriendRequest'); // 若定義了好友邀請模型
 
-// Middleware：確認已登入
-function ensureAuthenticated(req, res, next) {
+// 驗證
+function ensureAuth(req, res, next) {
   if (req.isAuthenticated()) return next();
   return res.status(401).json({ message: 'Unauthorized' });
 }
-// Middleware：確認已設定暱稱
-function ensureNicknameSet(req, res, next) {
-  if (req.user && req.user.isNicknameSet) return next();
-  return res.status(403).json({ message: 'Forbidden: 請先設定暱稱' });
-}
+router.use(ensureAuth);
+
+// POST /api/user/set-nickname
+router.post('/set-nickname', async (req, res) => {
+  const { nickname } = req.body;
+  if (!nickname || nickname.trim().length < 2) {
+    return res.status(400).json({ message: '暱稱需至少 2 字' });
+  }
+  const user = await User.findById(req.user._id);
+  if (!user || user.isNicknameSet) {
+    return res.status(400).json({ message: '無法設定暱稱' });
+  }
+  user.nickname = nickname.trim();
+  user.isNicknameSet = true;
+  await user.save();
+  res.json({ message: 'OK' });
+});
 
 // GET /api/user/me
-router.get('/me', ensureAuthenticated, async (req, res) => {
-  const user = await User.findById(req.user._id).populate('friends', 'nickname avatarUrl');
+router.get('/me', async (req, res) => {
+  const user = await User.findById(req.user._id)
+    .populate('friends', 'nickname avatarUrl')
+    .lean();
   const friendsMap = {};
   user.friends.forEach(f => {
     friendsMap[f._id] = {
-      nickname:  f.nickname,
+      nickname: f.nickname,
       avatarUrl: f.avatarUrl,
-      isOnline:  false
+      isOnline: false
     };
   });
-  return res.json({
-    id:        user._id.toString(),
-    nickname:  user.nickname,
-    userCode:  user.userCode,
-    avatarUrl: user.avatarUrl,
+  res.json({
+    id:       user._id.toString(),
+    nickname: user.nickname,
+    userCode: user.userCode,
+    avatarUrl:user.avatarUrl,
     friendsMap
   });
 });
 
-// GET /api/user/find-by-code/:userCode
-router.get('/find-by-code/:userCode', ensureAuthenticated, ensureNicknameSet, async (req, res) => {
-  const code = req.params.userCode.trim().toUpperCase();
-  if (!code) return res.status(400).json({ message: '請提供用戶ID' });
-  if (code === req.user.userCode) return res.status(400).json({ message: '不可加入自己' });
-
-  const other = await User.findOne({ userCode: code, _id: { $ne: req.user._id } })
-                        .select('nickname avatarUrl');
-  if (!other) return res.status(404).json({ message: '找不到此用戶' });
-  return res.json(other);
-});
-
 // POST /api/user/send-friend-request
-router.post('/send-friend-request', ensureAuthenticated, ensureNicknameSet, async (req, res) => {
+router.post('/send-friend-request', async (req, res) => {
   const { code } = req.body;
-  if (!code) return res.status(400).json({ message: '請提供用戶ID' });
-  if (code === req.user.userCode) return res.status(400).json({ message: '不可邀請自己' });
-
-  const other = await User.findOne({ userCode: code });
-  if (!other) return res.status(404).json({ message: '找不到此用戶' });
-
-  if (req.user.friends.includes(other._id)) {
-    return res.status(400).json({ message: '已經是好友' });
+  if (!code) return res.status(400).json({ message: '需要 userCode' });
+  if (code === req.user.userCode) {
+    return res.status(400).json({ message: '無法加自己' });
   }
-  const exist = await FriendRequest.findOne({ from: req.user._id, to: other._id });
-  if (exist) return res.status(400).json({ message: '已送出過邀請' });
+  const target = await User.findOne({ userCode: code });
+  if (!target) return res.status(404).json({ message: '找不到該用戶' });
 
-  await FriendRequest.create({ from: req.user._id, to: other._id });
-  return res.sendStatus(200);
+  // 防重複邀請
+  const exists = await FriendRequest.findOne({
+    from: req.user._id, to: target._id
+  });
+  if (exists) return res.status(400).json({ message: '已送出邀請' });
+
+  await FriendRequest.create({
+    from: req.user._id,
+    to:   target._id,
+    createdAt: new Date()
+  });
+
+  // 推通知
+  const io = req.app.get('io');
+  io.to(target._id.toString()).emit('new-friend-request', {
+    _id: req.user._id.toString(),
+    nickname: req.user.nickname,
+    avatarUrl: req.user.avatarUrl
+  });
+
+  res.json({ message: '邀請已送出' });
 });
 
 // GET /api/user/friend-requests
-router.get('/friend-requests', ensureAuthenticated, ensureNicknameSet, async (req, res) => {
-  const list = await FriendRequest.find({ to: req.user._id })
+router.get('/friend-requests', async (req, res) => {
+  const reqs = await FriendRequest.find({ to: req.user._id })
     .populate('from', 'nickname avatarUrl')
     .lean();
-  const result = list.map(rq => ({
-    _id:       rq.from._id.toString(),
-    nickname:  rq.from.nickname,
-    avatarUrl: rq.from.avatarUrl
-  }));
-  return res.json(result);
+  res.json(reqs.map(r => ({
+    _id:       r.from._id.toString(),
+    nickname:  r.from.nickname,
+    avatarUrl: r.from.avatarUrl
+  })));
 });
 
 // POST /api/user/respond-friend-request
-router.post('/respond-friend-request', ensureAuthenticated, ensureNicknameSet, async (req, res) => {
+router.post('/respond-friend-request', async (req, res) => {
   const { requesterId, accept } = req.body;
-  const me    = await User.findById(req.user._id);
-  const other = await User.findById(requesterId);
-  if (!other) return res.status(404).json({ message: '找不到請求者' });
-
-  await FriendRequest.deleteOne({ from: requesterId, to: me._id });
-
-  const io = req.app.get('io');
+  const fr = await FriendRequest.findOne({
+    from: requesterId, to: req.user._id
+  });
+  if (!fr) return res.status(404).json({ message: '邀請不存在' });
   if (accept) {
+    const me = await User.findById(req.user._id);
+    const other = await User.findById(requesterId);
     if (!me.friends.includes(other._id)) {
       me.friends.push(other._id);
       await me.save();
@@ -99,58 +110,33 @@ router.post('/respond-friend-request', ensureAuthenticated, ensureNicknameSet, a
       other.friends.push(me._id);
       await other.save();
     }
-    const p1 = {
-      id:        other._id.toString(),
-      nickname:  other.nickname,
-      avatarUrl: other.avatarUrl,
-      isOnline:  false
-    };
-    const p2 = {
-      id:        me._id.toString(),
-      nickname:  me.nickname,
+    // 即時通知雙方
+    const io = req.app.get('io');
+    io.to(requesterId).emit('new-friend', {
+      id: me._id.toString(),
+      nickname: me.nickname,
       avatarUrl: me.avatarUrl,
-      isOnline:  false
-    };
-    io.to(me._id.toString()).emit('new-friend', p1);
-    io.to(other._id.toString()).emit('new-friend', p2);
+      isOnline: true
+    });
+    io.to(req.user._id.toString()).emit('new-friend', {
+      id: other._id.toString(),
+      nickname: other.nickname,
+      avatarUrl: other.avatarUrl,
+      isOnline: false
+    });
   }
-  return res.sendStatus(200);
+  await fr.deleteOne();
+  res.json({ message: accept ? '已成為好友' : '已拒絕' });
 });
 
-// POST /api/user/mark-read
-router.post('/mark-read', ensureAuthenticated, ensureNicknameSet, async (req, res) => {
-  const { withUserId } = req.body;
-  await Message.updateMany(
-    { from: withUserId, to: req.user._id, read: false },
-    { $set: { read: true } }
-  );
-  return res.sendStatus(200);
-});
-
-// GET /api/user/chat-history/:friendId
-router.get('/chat-history/:friendId', ensureAuthenticated, ensureNicknameSet, async (req, res) => {
-  const friendId = req.params.friendId;
-  const raw = await Message.find({
-    $or: [
-      { from: req.user._id, to: friendId },
-      { from: friendId, to: req.user._id }
-    ]
-  })
-  .sort({ timestamp: 1 })
-  .populate('from', 'avatarUrl nickname')
-  .lean();
-
-  const history = raw.map(m => ({
-    from:      m.from._id.toString(),
-    to:        m.to?.toString(),
-    message:   m.message,
-    imageUrl:  m.imageUrl,
-    timestamp: m.timestamp,
-    read:      m.read,
-    avatarUrl: m.from.avatarUrl,
-    nickname:  m.from.nickname
-  }));
-  return res.json(history);
+// GET /api/user/find-by-code/:userCode
+router.get('/find-by-code/:userCode', async (req, res) => {
+  const code = req.params.userCode.trim().toUpperCase();
+  if (!code) return res.status(400).json({ message: '需要 code' });
+  const u = await User.findOne({ userCode: code, _id: { $ne: req.user._id } })
+    .select('nickname userCode avatarUrl');
+  if (!u) return res.status(404).json({ message: '找不到使用者' });
+  res.json(u);
 });
 
 module.exports = router;
