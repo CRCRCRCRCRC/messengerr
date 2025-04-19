@@ -5,70 +5,17 @@
   <title>精美聊天室</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/style.css"/>
   <script src="/socket.io/socket.io.js"></script>
-  <style>
-    /*－－基礎布局－－*/
-    html,body{height:100%;margin:0;font-family:'Segoe UI',sans-serif;}
-    .app-container{display:flex;height:100vh;}
-    .sidebar{width:280px;background:#f8f9fa;border-right:1px solid #dee2e6;display:flex;flex-direction:column;transition:transform .3s;}
-    .sidebar h5{padding:1rem;margin:0;border-bottom:1px solid #dee2e6;}
-    .friend-list{flex:1;overflow-y:auto;padding:.5rem 1rem;}
-    .friend{display:flex;align-items:center;gap:.75rem;padding:.5rem;border-radius:.5rem;cursor:pointer;transition:background .2s;}
-    .friend:hover{background:#e9ecef;}
-    .status-wrapper{position:relative;}
-    .status-dot{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;border:2px solid #fff;}
-    .chat-area{flex:1;display:flex;flex-direction:column;position:relative;}
-    .chat-header{padding:1rem;border-bottom:1px solid #dee2e6;background:#fff;font-weight:bold;display:flex;align-items:center;justify-content:space-between;}
-    #sidebarToggle{display:none;background:none;border:none;font-size:1.5rem;cursor:pointer;margin-right:.5rem;}
-    .chat-messages{flex:1;padding:1rem;overflow-y:auto;background:#f1f3f5;display:flex;flex-direction:column;gap:1rem;}
-    .message{max-width:70%;padding:.75rem 1rem;border-radius:1rem;box-shadow:0 1px 4px rgba(0,0,0,.1);position:relative;background:#fff;}
-    .message.self{align-self:flex-end;background:#d0ebff;}
-    .bubble-content{margin-top:.5rem;word-wrap:break-word;}
-    img.content-image{max-width:180px;max-height:180px;object-fit:contain;cursor:pointer;border-radius:4px;}
-    .time{display:block;text-align:right;font-size:.75em;color:gray;margin-top:.25rem;}
-    .read-indicator{font-size:.75em;color:green;margin-top:.25rem;}
-    .chat-input{padding:1rem;border-top:1px solid #dee2e6;background:#fff;}
-    /* 右鍵選單 */
-    #msg-context-menu{display:none;position:absolute;background:#fff;border:1px solid #ccc;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.15);z-index:1500;}
-    #msg-context-menu div{padding:.5rem 1rem;cursor:pointer;}
-    #msg-context-menu div:hover{background:#f1f3f5;}
-    /* 頂部控制按鈕 */
-    #top-controls{position:absolute;top:1rem;right:1rem;display:flex;gap:.75rem;}
-    #top-controls button, #top-controls a{font-size:1em;}
-    /* 新增好友 & 建群 區 */
-    #addFriendSection,#createGroupSection{display:none;padding:0 1rem 1rem 1rem;}
-    /* 遮罩 */
-    #overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);z-index:1000;backdrop-filter:blur(4px);}
-    #overlay.show{display:flex;align-items:center;justify-content:center;}
-    /* 個人檔案 Modal */
-    #profileModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:1100;align-items:center;justify-content:center;}
-    #profileModal.show{display:flex;}
-    #profileContent{background:#fff;border-radius:12px;padding:2rem;max-width:400px;width:90%;position:relative;transform:translateY(20px);animation:slideUp .4s ease forwards;}
-    @keyframes slideUp{from{transform:translateY(20px)}to{transform:translateY(0)}}
-    #profileContent h4{margin-bottom:1rem;}
-    #closeProfile{position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#666;}
-    /* 圓形裁切＋滑動縮放 */
-    #cropContainer{width:160px;height:160px;border-radius:50%;overflow:hidden;margin:0 auto 1rem;position:relative;border:2px solid #ddd;background:#f8f9fa;}
-    #cropImage{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);transition:transform .2s;cursor:pointer;}
-    .slider-container{display:flex;align-items:center;gap:.5rem;justify-content:center;margin-bottom:1rem;}
-    /* 響應式 */
-    @media(max-width:768px){
-      #sidebarToggle{display:block;}
-      .sidebar{position:fixed;top:0;left:0;height:100%;width:80%;max-width:280px;transform:translateX(-100%);z-index:500;}
-      .sidebar.open{transform:translateX(0);}
-      .chat-header{position:fixed;top:0;left:0;right:0;z-index:100;}
-      .chat-messages{margin-top:56px;}
-    }
-  </style>
 </head>
 <body>
 
-  <!-- 側邊欄遮罩 -->
+  <!-- 遮罩 -->
   <div id="overlay"></div>
 
   <div class="app-container">
     <div class="sidebar" id="sidebar">
-      <h5>聊天清單</h5>
+      <h5 class="sidebar-header">聊天清單</h5>
       <div class="friend-list" id="friend-list"></div>
       <div class="p-3">
         <button class="btn btn-success w-100 mb-2" onclick="toggleAddFriend()">新增好友</button>
@@ -102,7 +49,7 @@
 
       <div id="top-controls">
         <button class="btn btn-outline-info btn-sm" onclick="toggleNotifMenu()">🔔</button>
-        <button id="profileBtn" class="btn btn-outline-secondary btn-sm">👤</button>
+        <button id="profileBtn" class="btn btn-outline-secondary btn-sm">👤 個人資料</button>
         <a href="/auth/logout" class="btn btn-outline-danger btn-sm">登出</a>
       </div>
       <div id="notifMenu"></div>
@@ -116,27 +63,20 @@
   <div id="profileModal">
     <div id="profileContent">
       <button id="closeProfile">✕</button>
-      <h4 class="text-center">個人檔案編輯</h4>
-      <!-- 圓形裁切區 -->
+      <h4>個人資料編輯</h4>
       <div id="cropContainer">
         <img id="cropImage" src="/default-avatar.png" alt="大頭貼">
       </div>
-      <!-- 縮放 slider -->
       <div class="slider-container">
         <label for="avatarScale">縮放：</label>
         <input type="range" id="avatarScale" min="0.5" max="2" step="0.01" value="1">
       </div>
-      <!-- 選檔 button -->
-      <div class="text-center mb-3">
-        <label class="btn btn-outline-secondary">
-          選擇新大頭貼
-          <input type="file" id="avatarInput" accept="image/*">
-        </label>
+      <div id="avatarInputLabel">
+        <input type="file" id="avatarInput" accept="image/*">
+        <span>選擇新大頭貼</span>
       </div>
-      <!-- 暱稱輸入 -->
       <input type="text" id="nicknameInput" class="form-control mb-3" placeholder="輸入暱稱">
-      <!-- 儲存按鈕 -->
-      <button class="btn btn-primary w-100" onclick="submitProfile()">儲存設定</button>
+      <button id="saveProfileBtn" onclick="submitProfile()">儲存設定</button>
     </div>
   </div>
 
@@ -156,11 +96,11 @@
 
     /* 側邊欄 */
     function toggleSidebar(){
-      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar').classList.toggle('closed');
       document.getElementById('overlay').classList.toggle('show');
     }
     function closeSidebar(){
-      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar').classList.add('closed');
       document.getElementById('overlay').classList.remove('show');
     }
 
@@ -168,10 +108,8 @@
     function loadMe(){
       fetch('/api/user/me').then(r=>r.json()).then(u=>{
         myId=u.id; myNickname=u.nickname; myAvatarUrl=u.avatarUrl;
-        // profile modal 預設
         document.getElementById('cropImage').src = u.avatarUrl;
         document.getElementById('nicknameInput').value = u.nickname;
-        // 載清單
         loadChats();
       });
     }
@@ -179,7 +117,8 @@
     /* 通知 */
     function toggleNotifMenu(){
       const m = document.getElementById('notifMenu');
-      m.innerHTML=''; fetch('/api/user/friend-requests').then(r=>r.json()).then(reqs=>{
+      m.innerHTML='';
+      fetch('/api/user/friend-requests').then(r=>r.json()).then(reqs=>{
         if(!reqs.length) m.innerHTML='<div class="p-2">沒有好友邀請。</div>';
         else reqs.forEach(rq=>{
           const d=document.createElement('div'); d.className='p-2 border-bottom';
@@ -255,7 +194,7 @@
       const list=document.getElementById('friend-list'); list.innerHTML='';
       chats.forEach(c=>{
         const el=document.createElement('div'); el.className='friend'; el.dataset.id=c.id+'|'+c.type;
-        const dot=c.type==='friend'?`<span class="status-dot" style="background:${c.isOnline?'#28a745':'#343a40'}"></span>`:'';
+        const dot=c.type==='friend'?`<span class="status-dot" style="background:${c.isOnline?'#4caf50':'#888'}"></span>`:'';
         el.innerHTML=`
           <div class="status-wrapper">
             <img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">${dot}
@@ -359,19 +298,17 @@
     document.getElementById('lb-next').onclick=()=>{lbIndex=(lbIndex+1)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIndex];};
     document.getElementById('lightbox').onclick=e=>{if(e.target.id==='lightbox')document.getElementById('lightbox').style.display='none';};
 
-    /* 個人檔案 Modal 相關 */
+    /* Profile Modal */
     document.getElementById('profileBtn').onclick = ()=>{
       document.getElementById('profileModal').classList.add('show');
     };
     document.getElementById('closeProfile').onclick = ()=>{
       document.getElementById('profileModal').classList.remove('show');
     };
-    // 縮放頭像
     document.getElementById('avatarScale').addEventListener('input',e=>{
       document.getElementById('cropImage').style.transform =
         `translate(-50%,-50%) scale(${e.target.value})`;
     });
-    // 預覽新檔
     document.getElementById('avatarInput').addEventListener('change',e=>{
       const f=e.target.files[0];
       if(!f)return;
@@ -379,7 +316,6 @@
       document.getElementById('avatarScale').value = 1;
       document.getElementById('cropImage').style.transform = 'translate(-50%,-50%) scale(1)';
     });
-    // 提交編輯
     function submitProfile(){
       const form=new FormData();
       const nick=document.getElementById('nicknameInput').value.trim();
@@ -400,11 +336,11 @@
     socket.on('connect',()=>{
       socket.on('friend-online',e=>{
         const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
-        if(d)d.style.background='#28a745';
+        if(d)d.style.background='#4caf50';
       });
       socket.on('friend-offline',e=>{
         const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
-        if(d)d.style.background='#343a40';
+        if(d)d.style.background='#888';
       });
       socket.on('new-friend',f=>{
         if(!chats.find(c=>c.id===f.id&&c.type==='friend')){
