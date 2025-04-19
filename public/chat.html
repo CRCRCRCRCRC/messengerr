@@ -1,130 +1,57 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <title>精美聊天室</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     html, body { height:100%; margin:0; font-family:'Segoe UI',sans-serif; }
     .app-container { display:flex; height:100vh; }
-    /* 側邊欄 */
-    .sidebar {
-      width:280px; background:#f8f9fa; border-right:1px solid #dee2e6;
-      display:flex; flex-direction:column; transition:transform .3s ease;
-    }
-    .sidebar h5 { padding:1rem; margin:0; border-bottom:1px solid #dee2e6; }
-    .friend-list { flex:1; overflow-y:auto; padding:0.5rem 1rem; }
-    .friend {
-      display:flex; align-items:center; gap:0.75rem; padding:0.5rem;
-      border-radius:0.5rem; cursor:pointer; transition:background .2s;
-    }
-    .friend:hover { background:#e9ecef; }
-    .status-wrapper { position:relative; }
-    .status-dot {
-      position:absolute; bottom:0; right:0;
-      width:10px; height:10px; border-radius:50%;
-      border:2px solid white;
-    }
-    /* 主區 */
-    .chat-area { flex:1; display:flex; flex-direction:column; position:relative; }
-    .chat-header {
-      padding:1rem; border-bottom:1px solid #dee2e6;
-      background:#fff; font-weight:bold; display:flex; align-items:center;
-      justify-content:space-between;
-    }
-    #sidebarToggle {
-      display:none; background:none; border:none;
-      font-size:1.5rem; cursor:pointer; margin-right:0.5rem;
-    }
-    .chat-messages {
-      flex:1; padding:1rem; overflow-y:auto; background:#f1f3f5;
-      display:flex; flex-direction:column; gap:1rem; position:relative;
-    }
-    .message {
-      max-width:70%; background:white; padding:0.75rem 1rem;
-      border-radius:1rem; box-shadow:0 1px 4px rgba(0,0,0,0.1);
-      position:relative;
-    }
-    .message.self { align-self:flex-end; background:#d0ebff; }
-    .bubble-content { margin-top:0.5rem; word-wrap:break-word; }
-    img.content-image {
-      max-width:180px; max-height:180px; object-fit:contain;
-      cursor:pointer; border-radius:4px;
-    }
-    .time {
-      display:block; text-align:right;
-      font-size:0.75em; color:gray; margin-top:0.25rem;
-    }
-    .read-indicator {
-      font-size:0.75em; color:green; margin-top:0.25rem;
-    }
-    #msg-context-menu {
-      display:none; position:absolute; background:white;
-      border:1px solid #ccc; border-radius:4px;
-      box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:1500;
-    }
-    #msg-context-menu div {
-      padding:0.5rem 1rem; cursor:pointer;
-    }
-    #msg-context-menu div:hover { background:#f1f3f5; }
-    .chat-input {
-      padding:1rem; border-top:1px solid #dee2e6; background:#fff;
-    }
-    #top-controls {
-      position:absolute; top:1rem; right:1rem; display:flex; gap:0.75rem;
-    }
-    #userMenu,#notifMenu {
-      position:absolute; top:3.5rem; right:1rem;
-      background:white; border:1px solid #ccc; border-radius:6px;
-      padding:0.75rem 1rem; display:none;
-      box-shadow:0 0.5rem 1rem rgba(0,0,0,0.15); z-index:100;
-    }
-    #addFriendSection,#createGroupSection {
-      display:none; padding:0 1rem 1rem 1rem;
-    }
-    /* Lightbox */
-    #lightbox {
-      display:none; position:fixed; top:0; left:0;
-      width:100vw; height:100vh; background:rgba(0,0,0,0.8);
-      align-items:center; justify-content:center; z-index:2000;
-    }
-    #lightbox img {
-      max-width:90%; max-height:90%; border-radius:8px;
-    }
-    #lightbox button {
-      position:absolute; background:none; border:none;
-      color:white; cursor:pointer; font-size:2rem;
-    }
-    #lb-close { top:20px; right:20px; font-size:1.5rem; }
-    #lb-prev { left:20px; top:50%; transform:translateY(-50%); }
-    #lb-next { right:20px; top:50%; transform:translateY(-50%); }
-    /* 手機版 */
-    @media(max-width:768px) {
-      #sidebarToggle { display:block; }
-      .sidebar {
-        position:fixed; top:0; left:0; height:100%;
-        width:80%; max-width:280px;
-        transform:translateX(-100%);
-        z-index:1100;
-      }
-      .sidebar.open { transform:translateX(0); }
-      .chat-header { position:fixed; top:0; left:0; right:0; z-index:100; }
-      .chat-messages { margin-top:56px; }
-      #overlay {
-        display:none; position:fixed; top:0; left:0;
-        width:100%; height:100%; background:rgba(0,0,0,0.3);
-        z-index:1050;
-      }
-      #overlay.show { display:block; }
+    .sidebar { width:280px; background:#f8f9fa; border-right:1px solid #dee2e6; display:flex; flex-direction:column; transition:transform .3s;}
+    .sidebar h5 { padding:1rem; margin:0; border-bottom:1px solid #dee2e6;}
+    .friend-list { flex:1; overflow-y:auto; padding:0.5rem 1rem;}
+    .friend { display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border-radius:0.5rem; cursor:pointer; transition:background .2s;}
+    .friend:hover { background:#e9ecef;}
+    .status-wrapper { position:relative;}
+    .status-dot { position:absolute; bottom:0; right:0; width:10px; height:10px; border-radius:50%; border:2px solid white;}
+    .chat-area { flex:1; display:flex; flex-direction:column; position:relative;}
+    .chat-header { padding:1rem; border-bottom:1px solid #dee2e6; background:#fff; font-weight:bold; display:flex; align-items:center; justify-content:space-between;}
+    #sidebarToggle { display:none; background:none; border:none; font-size:1.5rem; cursor:pointer; margin-right:0.5rem;}
+    .chat-messages { flex:1; padding:1rem; overflow-y:auto; background:#f1f3f5; display:flex; flex-direction:column; gap:1rem; position:relative;}
+    .message { max-width:70%; background:white; padding:0.75rem 1rem; border-radius:1rem; box-shadow:0 1px 4px rgba(0,0,0,0.1); position:relative;}
+    .message.self { align-self:flex-end; background:#d0ebff;}
+    .bubble-content { margin-top:0.5rem; word-wrap:break-word;}
+    img.content-image { max-width:180px; max-height:180px; object-fit:contain; cursor:pointer; border-radius:4px;}
+    .time { display:block; text-align:right; font-size:0.75em; color:gray; margin-top:0.25rem;}
+    .read-indicator { font-size:0.75em; color:green; margin-top:0.25rem;}
+    #msg-context-menu { display:none; position:absolute; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:1500;}
+    #msg-context-menu div{ padding:0.5rem 1rem; cursor:pointer;}
+    #msg-context-menu div:hover{ background:#f1f3f5;}
+    .chat-input{ padding:1rem; border-top:1px solid #dee2e6; background:#fff;}
+    #top-controls{ position:absolute; top:1rem; right:1rem; display:flex; gap:0.75rem;}
+    #userMenu,#notifMenu{ position:absolute; top:3.5rem; right:1rem; background:white; border:1px solid #ccc; border-radius:6px; padding:0.75rem 1rem; display:none; box-shadow:0 0.5rem 1rem rgba(0,0,0,0.15); z-index:2000; pointer-events:auto;}
+    #addFriendSection,#createGroupSection{ display:none; padding:0 1rem 1rem 1rem;}
+    #overlay{ display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); z-index:50;}
+    #overlay.show{ display:block;}
+    #lightbox{ display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:2000;}
+    #lightbox img{ max-width:90%; max-height:90%; border-radius:8px;}
+    #lightbox button{ position:absolute; background:none; border:none; color:white; cursor:pointer; font-size:2rem;}
+    #lb-close{ top:20px; right:20px; font-size:1.5rem;}
+    #lb-prev{ left:20px; top:50%; transform:translateY(-50%);}
+    #lb-next{ right:20px; top:50%; transform:translateY(-50%);}
+    @media(max-width:768px){
+      #sidebarToggle{ display:block;}
+      .sidebar{ position:fixed; top:0; left:0; height:100%; width:80%; max-width:280px; transform:translateX(-100%); z-index:1100;}
+      .sidebar.open{ transform:translateX(0);}
+      .chat-header{ position:fixed; top:0; left:0; right:0; z-index:100;}
+      .chat-messages{ margin-top:56px;}
     }
   </style>
 </head>
 <body>
-
   <div id="overlay" onclick="closeSidebar()"></div>
-
   <div class="app-container">
     <div class="sidebar" id="sidebar">
       <h5>聊天清單</h5>
@@ -143,9 +70,8 @@
         </div>
       </div>
     </div>
-
     <div class="chat-area">
-      <div class="chat-header" id="chat-header">
+      <div class="chat-header">
         <button id="sidebarToggle" onclick="toggleSidebar()">☰</button>
         <span id="chat-with">請選擇聊天對象</span>
       </div>
@@ -158,31 +84,22 @@
           <button class="btn btn-primary" type="submit">傳送</button>
         </div>
       </form>
-
       <div id="top-controls">
         <button class="btn btn-outline-info btn-sm" onclick="toggleNotifMenu()">🔔</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="toggleUserMenu()">⚙️</button>
         <a href="/auth/logout" class="btn btn-outline-danger btn-sm">登出</a>
       </div>
-      <div id="userMenu">
-        <div><strong>名稱：</strong><span id="my-name"></span></div>
-        <div><strong>用戶ID：</strong><span id="my-code"></span></div>
-      </div>
+      <div id="userMenu"></div>
       <div id="notifMenu"></div>
     </div>
   </div>
-
-  <div id="msg-context-menu">
-    <div onclick="recallContextMessage()">收回</div>
-  </div>
-
+  <div id="msg-context-menu"><div onclick="recallContextMessage()">收回</div></div>
   <div id="lightbox">
     <button id="lb-prev">&lt;</button>
     <img id="lb-img" src="">
     <button id="lb-next">&gt;</button>
     <button id="lb-close">✕</button>
   </div>
-
   <script>
     const socket = io();
     let myId, myNickname, myAvatarUrl;
@@ -190,59 +107,8 @@
     let lbImages = [], lbIndex = 0;
     let contextTargetMsgId = null;
 
-    function toggleSidebar(){
-      document.getElementById('sidebar').classList.toggle('open');
-      document.getElementById('overlay').classList.toggle('show');
-    }
-    function closeSidebar(){
-      document.getElementById('sidebar').classList.remove('open');
-      document.getElementById('overlay').classList.remove('show');
-    }
-
-    function toggleAddFriend(){
-      const s = document.getElementById('addFriendSection');
-      s.style.display = s.style.display==='block'?'none':'block';
-    }
-    function submitAddFriend(){
-      const code = document.getElementById('friendIdInput').value.trim();
-      if(!code) return alert('請輸入用戶ID');
-      fetch('/api/user/send-friend-request',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ code })
-      }).then(r=>{
-        if(r.ok) alert('邀請已送出');
-        else r.json().then(d=>alert('❌ '+d.message));
-      });
-    }
-    function toggleCreateGroup(){
-      const s = document.getElementById('createGroupSection');
-      if(s.style.display!=='block'){
-        populateGroupMembers();
-        s.style.display = 'block';
-      } else s.style.display = 'none';
-    }
-    function populateGroupMembers(){
-      fetch('/api/user/me').then(r=>r.json()).then(u=>{
-        const cbx = document.getElementById('groupMembersCheckboxes');
-        cbx.innerHTML = '';
-        Object.entries(u.friendsMap).forEach(([id,info])=>{
-          cbx.insertAdjacentHTML('beforeend',`
-            <div><input type="checkbox" id="gm_${id}" value="${id}">
-            <label for="gm_${id}">${info.nickname}</label></div>
-          `);
-        });
-      });
-    }
-    function submitCreateGroup(){
-      const name = document.getElementById('groupNameInput').value.trim();
-      if(!name) return alert('請輸入群組名稱');
-      const members = [myId];
-      document.querySelectorAll('#groupMembersCheckboxes input:checked').forEach(i=>members.push(i.value));
-      fetch('/api/group/create',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ name,members })
-      });
-    }
+    function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('show'); }
+    function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
 
     function loadChats(){
       chats = []; lbImages = [];
@@ -251,224 +117,129 @@
         fetch('/api/group/list').then(r=>r.json())
       ]).then(([u,gs])=>{
         Object.entries(u.friendsMap).forEach(([id,info])=>{
-          chats.push({ id, type:'friend', name:info.nickname,
-            avatarUrl:info.avatarUrl, isOnline:info.isOnline });
+          chats.push({ id, type:'friend', name:info.nickname, avatarUrl:info.avatarUrl, isOnline:info.isOnline });
         });
         gs.forEach(g=>{
-          chats.push({ id:g._id, type:'group', name:g.name,
-            avatarUrl:g.avatarUrl||'/default-group.png' });
+          chats.push({ id:g._id, type:'group', name:g.name, avatarUrl:g.avatarUrl||'/default-avatar.png' });
         });
         renderChatList();
       });
     }
     function renderChatList(){
-      // 去重
-      const unique = {};
-      chats = chats.filter(c=>{
-        const key = c.id+'|'+c.type;
-        if(unique[key]) return false;
-        unique[key] = true;
-        return true;
-      });
-      const list = document.getElementById('friend-list');
-      list.innerHTML = '';
+      const uniq = {}; chats = chats.filter(c=>{ const k=c.id+'|'+c.type; if(uniq[k])return false; uniq[k]=1; return true; });
+      const list = document.getElementById('friend-list'); list.innerHTML='';
       chats.forEach(c=>{
-        const el = document.createElement('div');
-        el.className = 'friend';
-        el.dataset.id = c.id+'|'+c.type;
-        const dot = c.type==='friend'
-          ? `<span class="status-dot" style="background:${c.isOnline?'#28a745':'#343a40'}"></span>`
-          : '';
-        el.innerHTML = `
-          <div class="status-wrapper">
-            <img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">
-            ${dot}
-          </div>
-          <span>${c.name}</span>
-        `;
-        el.onclick = ()=>openChat(c.id,c.type,c.name);
+        const el=document.createElement('div'); el.className='friend'; el.dataset.id=c.id+'|'+c.type;
+        const dot=c.type==='friend'?`<span class="status-dot" style="background:${c.isOnline?'#28a745':'#343a40'}"></span>`:'';
+        el.innerHTML=`<div class="status-wrapper"><img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">${dot}</div><span>${c.name}</span>`;
+        el.onclick=()=>openChat(c.id,c.type,c.name);
         list.appendChild(el);
       });
     }
-    function openChat(id,type,name){
-      currentChat = { id,type };
-      document.getElementById('chat-with').textContent =
-        type==='friend'?`與 ${name} 聊天中`:name;
-      document.getElementById('message-log').innerHTML = '';
-      document.getElementById('chat-form').classList.remove('d-none');
-      socket.emit('load history',{ id,type });
-    }
-    function triggerImageUpload(){
-      document.getElementById('image-input').click();
-    }
-    function uploadImage(e){
-      const file = e.target.files[0];
-      if(!file||!currentChat) return;
-      const form = new FormData();
-      form.append('image',file);
-      form.append('to',currentChat.id);
-      form.append('type',currentChat.type);
-      fetch('/api/upload-image',{ method:'POST', body:form })
-        .then(r=>r.json())
-        .then(m=>appendMessage(m,m.from===myId));
-    }
+
+    // 一載入就執行
+    loadChats();
 
     socket.on('connect',()=>{
-      loadChats();
-
-      socket.on('chat history',data=>{
-        data.messages.forEach(m=>appendMessage(m,m.from===myId));
-      });
-      socket.on('private message',m=>{
-        if(currentChat?.type==='friend'&&m.from===currentChat.id){
-          appendMessage(m,false);
-        }
-      });
-      socket.on('group message',m=>{
-        if(currentChat?.type==='group'&&m.groupId===currentChat.id){
-          appendMessage(m,false);
-        }
-      });
+      socket.on('friend-online',e=>{ const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`); if(d)d.style.background='#28a745'; });
+      socket.on('friend-offline',e=>{ const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`); if(d)d.style.background='#343a40'; });
       socket.on('new-friend',f=>{
         if(!chats.find(c=>c.id===f.id&&c.type==='friend')){
-          chats.push({ id:f.id, type:'friend', name:f.nickname,
-            avatarUrl:f.avatarUrl, isOnline:f.isOnline });
+          chats.push({ id:f.id, type:'friend', name:f.nickname, avatarUrl:f.avatarUrl, isOnline:f.isOnline });
           renderChatList();
         }
       });
-      socket.on('friend-online',e=>{
-        const dot = document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
-        if(dot) dot.style.background='#28a745';
-      });
-      socket.on('friend-offline',e=>{
-        const dot = document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
-        if(dot) dot.style.background='#343a40';
-      });
-      socket.on('message recalled',data=>{
-        const el = document.querySelector(`.message[data-id="${data.messageId}"] .bubble-content`);
-        if(el) el.innerHTML = `<em style="color:gray;">此則訊息已被收回</em>`;
-      });
+      socket.on('chat history',data=>data.messages.forEach(m=>appendMessage(m,m.from===myId)));
+      socket.on('private message',m=>{ if(currentChat?.type==='friend'&&m.from===currentChat.id)appendMessage(m,false); });
+      socket.on('group message',m=>{ if(currentChat?.type==='group'&&m.groupId===currentChat.id)appendMessage(m,false); });
+      socket.on('message recalled',d=>{ const el=document.querySelector(`.message[data-id="${d.messageId}"] .bubble-content`); if(el)el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>'; });
     });
+
+    function openChat(id,type,name){
+      currentChat={id,type};
+      document.getElementById('chat-with').textContent=type==='friend'?`與 ${name} 聊天中`:name;
+      document.getElementById('message-log').innerHTML='';
+      document.getElementById('chat-form').classList.remove('d-none');
+      socket.emit('load history',{id,type});
+    }
 
     document.getElementById('chat-form').addEventListener('submit',e=>{
       e.preventDefault();
-      const txt = document.getElementById('message-input').value.trim();
-      if(!txt||!currentChat) return;
-      const now = new Date();
+      const txt=document.getElementById('message-input').value.trim();
+      if(!txt||!currentChat)return;
+      const now=new Date();
       if(currentChat.type==='friend'){
-        socket.emit('private message',{ toUserId:currentChat.id, message:txt });
-        appendMessage({
-          id:null, from:myId, to:currentChat.id,
-          message:txt, imageUrl:null,
-          timestamp:now, read:false, recalled:false,
-          avatarUrl:myAvatarUrl, nickname:myNickname
-        }, true);
+        socket.emit('private message',{toUserId:currentChat.id,message:txt});
+        appendMessage({id:null,from:myId,to:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
       } else {
-        socket.emit('group message',{ to:currentChat.id, message:txt });
-        appendMessage({
-          id:null, from:myId, groupId:currentChat.id,
-          message:txt, imageUrl:null,
-          timestamp:now, read:false, recalled:false,
-          avatarUrl:myAvatarUrl, nickname:myNickname
-        }, true);
+        socket.emit('group message',{to:currentChat.id,message:txt});
+        appendMessage({id:null,from:myId,groupId:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
       }
       document.getElementById('message-input').value='';
     });
 
+    function triggerImageUpload(){ document.getElementById('image-input').click(); }
+    function uploadImage(e){
+      const f=e.target.files[0]; if(!f||!currentChat)return;
+      const form=new FormData(); form.append('image',f); form.append('to',currentChat.id); form.append('type',currentChat.type);
+      fetch('/api/upload-image',{method:'POST',body:form}).then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
+    }
+
     function appendMessage(msg,isSelf){
-      const box = document.getElementById('message-log');
-      const div = document.createElement('div');
-      div.className = 'message'+(isSelf?' self':'');
-      if(msg.id) div.dataset.id = msg.id;
-
+      const box=document.getElementById('message-log');
+      const div=document.createElement('div'); div.className='message'+(isSelf?' self':'');
+      if(msg.id)div.dataset.id=msg.id;
       let content;
-      if(msg.recalled){
-        content = `<em style="color:gray;">此則訊息已被收回</em>`;
-      } else if(msg.imageUrl){
-        content = `<img src="${msg.imageUrl}" class="content-image">`;
-      } else {
-        content = msg.message;
-      }
-
-      div.innerHTML = `
-        <div style="display:flex;gap:.5rem;">
-          <img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
-          <div>
-            <strong>${msg.nickname}</strong>
-            <div class="bubble-content">${content}</div>
-            <span class="time">${new Date(msg.timestamp).toLocaleTimeString('zh-TW')}</span>
-            ${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}
-          </div>
-        </div>
-      `;
-
-      if(isSelf && !msg.recalled && msg.id){
+      if(msg.recalled)content='<em style="color:gray;">此則訊息已被收回</em>';
+      else if(msg.imageUrl)content=`<img src="${msg.imageUrl}" class="content-image">`;
+      else content=msg.message;
+      div.innerHTML=`<div style="display:flex;gap:.5rem;"><img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle"><div><strong>${msg.nickname}</strong><div class="bubble-content">${content}</div><span class="time">${new Date(msg.timestamp).toLocaleTimeString('zh-TW')}</span>${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}</div></div>`;
+      if(isSelf&&!msg.recalled&&msg.id){
         div.addEventListener('contextmenu',e=>{
           e.preventDefault();
-          contextTargetMsgId = msg.id;
-          const m = document.getElementById('msg-context-menu');
-          m.style.top = e.pageY+'px';
-          m.style.left = e.pageX+'px';
-          m.style.display = 'block';
+          contextTargetMsgId=msg.id;
+          const m=document.getElementById('msg-context-menu');
+          m.style.top=e.pageY+'px'; m.style.left=e.pageX+'px'; m.style.display='block';
         });
       }
-
-      box.appendChild(div);
-      box.scrollTop = box.scrollHeight;
-
-      if(msg.imageUrl && !msg.recalled){
+      box.appendChild(div); box.scrollTop=box.scrollHeight;
+      if(msg.imageUrl&&!msg.recalled){
         lbImages.push(msg.imageUrl);
         setTimeout(()=>{
-          const imgs = document.querySelectorAll('#message-log img.content-image');
-          const imgEl = imgs[imgs.length-1];
-          const idx = lbImages.length-1;
-          imgEl.onclick = ()=>openLightbox(idx);
+          const imgs=document.querySelectorAll('#message-log img.content-image');
+          const imgEl=imgs[imgs.length-1], idx=lbImages.length-1;
+          imgEl.onclick=()=>openLightbox(idx);
         },0);
       }
     }
 
     document.addEventListener('click',e=>{
-      const m = document.getElementById('msg-context-menu');
-      if(!m.contains(e.target)) m.style.display='none';
+      const m=document.getElementById('msg-context-menu');
+      if(!m.contains(e.target))m.style.display='none';
     });
 
     function recallContextMessage(){
-      if(!contextTargetMsgId) return;
-      fetch('/api/message/recall',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ messageId:contextTargetMsgId })
-      }).then(r=>{
-        if(r.ok){
-          const el = document.querySelector(`.message[data-id="${contextTargetMsgId}"] .bubble-content`);
-          if(el) el.innerHTML = `<em style="color:gray;">此則訊息已被收回</em>`;
-        }
-      });
+      if(!contextTargetMsgId)return;
+      fetch('/api/message/recall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:contextTargetMsgId})})
+        .then(r=>r.ok&&(()=>{const el=document.querySelector(`.message[data-id="${contextTargetMsgId}"] .bubble-content`);if(el)el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>'})());
       document.getElementById('msg-context-menu').style.display='none';
-      contextTargetMsgId = null;
+      contextTargetMsgId=null;
     }
 
     function openLightbox(i){
-      lbIndex = i;
-      document.getElementById('lb-img').src = lbImages[i];
-      document.getElementById('lightbox').style.display = 'flex';
+      lbIndex=i;
+      document.getElementById('lb-img').src=lbImages[i];
+      document.getElementById('lightbox').style.display='flex';
     }
-    document.getElementById('lb-close').onclick = ()=>document.getElementById('lightbox').style.display='none';
-    document.getElementById('lb-prev').onclick = ()=>{
-      lbIndex = (lbIndex-1+lbImages.length)%lbImages.length;
-      document.getElementById('lb-img').src = lbImages[lbIndex];
-    };
-    document.getElementById('lb-next').onclick = ()=>{
-      lbIndex = (lbIndex+1)%lbImages.length;
-      document.getElementById('lb-img').src = lbImages[lbIndex];
-    };
-    document.getElementById('lightbox').onclick = e=>{
-      if(e.target.id==='lightbox') document.getElementById('lightbox').style.display='none';
-    };
+    document.getElementById('lb-close').onclick=()=>document.getElementById('lightbox').style.display='none';
+    document.getElementById('lb-prev').onclick=()=>{lbIndex=(lbIndex-1+lbImages.length)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIndex];};
+    document.getElementById('lb-next').onclick=()=>{lbIndex=(lbIndex+1)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIndex];};
+    document.getElementById('lightbox').onclick=e=>{if(e.target.id==='lightbox')document.getElementById('lightbox').style.display='none';};
 
     fetch('/api/user/me').then(r=>r.json()).then(u=>{
-      myId = u.id; myNickname = u.nickname; myAvatarUrl = u.avatarUrl;
-      document.getElementById('my-name').textContent = u.nickname;
-      document.getElementById('my-code').textContent = u.userCode;
+      myId=u.id;myNickname=u.nickname;myAvatarUrl=u.avatarUrl;
+      document.getElementById('my-name').textContent=u.nickname;
+      document.getElementById('my-code').textContent=u.userCode;
     });
   </script>
 </body>
