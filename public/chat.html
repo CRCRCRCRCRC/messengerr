@@ -7,14 +7,10 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src="/socket.io/socket.io.js"></script>
-  <style>
-    /* 臨時遮罩（無漢堡時可移除） */
-    #overlay.show { display:none; }
-  </style>
 </head>
 <body>
   <div class="app-container">
-    <!-- 側邊欄：永遠顯示 -->
+    <!-- 側邊欄 -->
     <div class="sidebar" id="sidebar">
       <h5 class="sidebar-header">聊天清單</h5>
       <div class="friend-list" id="friend-list"></div>
@@ -36,7 +32,6 @@
     <!-- 聊天主區 -->
     <div class="chat-area">
       <div class="chat-header">
-        <!-- 刪除漢堡按鈕 -->
         <span id="chat-with">請選擇聊天對象</span>
       </div>
       <div class="chat-messages" id="message-log"></div>
@@ -48,52 +43,48 @@
           <button class="btn btn-primary" type="submit">傳送</button>
         </div>
       </form>
-
-      <!-- 頂部按鈕：間距加大避免重疊 -->
-      <div id="top-controls" style="top:1rem;right:1.5rem;gap:1rem;">
+      <div id="top-controls">
         <button class="btn btn-outline-info btn-sm" onclick="toggleNotifMenu()">🔔</button>
         <button id="profileBtn" class="btn btn-outline-secondary btn-sm">👤 個人資料</button>
         <a href="/auth/logout" class="btn btn-outline-danger btn-sm">登出</a>
       </div>
-      <div id="notifMenu" style="display:none;position:absolute;top:2.5rem;right:1.5rem;background:rgba(255,255,255,0.9);padding:1rem;border-radius:.5rem;"></div>
+      <div id="notifMenu" style="display:none;position:absolute;top:3.5rem;right:1.5rem;background:rgba(255,255,255,0.9);padding:1rem;border-radius:.5rem;z-index:150;"></div>
     </div>
   </div>
 
   <!-- 右鍵收回選單 -->
-  <div id="msg-context-menu" style="position:absolute;display:none;background:#fff;border:1px solid #ccc;border-radius:.25rem;z-index:2000;">
-    <div style="padding:.5rem;cursor:pointer;" onclick="recallContextMessage()">收回</div>
+  <div id="msg-context-menu" style="position:absolute;display:none;background:#fff;border:1px solid #ccc;border-radius:4px;z-index:2000;">
+    <div style="padding:8px;cursor:pointer;" onclick="recallContextMessage()">收回</div>
   </div>
 
   <!-- 個人資料 Modal -->
   <div id="profileModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;z-index:2000;">
-    <div id="profileContent" style="background:#2d3436;border-radius:1rem;padding:2rem;width:360px;max-width:90%;position:relative;animation:slideUp .4s cubic-bezier(.25,.8,.25,1) forwards;">
-      <button id="closeProfile" style="position:absolute;top:1rem;right:1rem;background:none;color:#fff;font-size:1.2rem;">✕</button>
-      <h4 style="color:#fff;text-align:center;margin-bottom:1rem;">個人資料</h4>
-      <div id="profileTabs" style="display:flex;gap:1rem;margin-bottom:1rem;">
-        <button id="tabInfo" class="active" style="flex:1;padding:.5rem;border:none;border-radius:.5rem;color:#fff;background:linear-gradient(135deg,#74b9ff,#0984e3);" onclick="switchTab('info')">個人資料</button>
-        <button id="tabEdit" style="flex:1;padding:.5rem;border:none;border-radius:.5rem;color:#fff;background:rgba(255,255,255,0.1);" onclick="switchTab('edit')">編輯個人資料</button>
+    <div id="profileContent" style="background:#2d3436;border-radius:16px;padding:32px;width:360px;max-width:90%;position:relative;animation:slideUp .4s cubic-bezier(.25,.8,.25,1) forwards;color:#fff;">
+      <button id="closeProfile" style="position:absolute;top:16px;right:16px;background:none;color:#fff;font-size:20px;">✕</button>
+      <h4 style="text-align:center;margin-bottom:24px;">個人資料</h4>
+      <div id="profileTabs" style="display:flex;gap:16px;margin-bottom:16px;">
+        <button id="tabInfo" class="active" style="flex:1;padding:8px;border:none;border-radius:8px;color:#fff;background:linear-gradient(135deg,#74b9ff,#0984e3);" onclick="switchTab('info')">個人資料</button>
+        <button id="tabEdit" style="flex:1;padding:8px;border:none;border-radius:8px;color:#fff;background:rgba(255,255,255,0.1);" onclick="switchTab('edit')">編輯個人資料</button>
       </div>
-      <!-- 資料顯示區 -->
-      <div id="infoSection" class="profile-section" style="display:block;text-align:center;color:#fff;">
-        <img id="infoAvatar" src="/default-avatar.png" alt="頭像" style="width:120px;height:120px;border-radius:50%;margin:0 auto 1rem;">
-        <div style="margin-bottom:.5rem;">暱稱：<span id="infoNickname"></span></div>
+      <div id="infoSection" class="profile-section" style="display:block;text-align:center;">
+        <img id="infoAvatar" src="/default-avatar.png" alt="頭像" style="width:120px;height:120px;border-radius:50%;margin:0 auto 16px;">
+        <div style="margin-bottom:8px;">暱稱：<span id="infoNickname"></span></div>
         <div>用戶ID：<span id="infoUserCode"></span></div>
       </div>
-      <!-- 編輯區 -->
       <div id="editSection" class="profile-section" style="display:none;">
-        <div id="cropContainer" style="width:160px;height:160px;margin:0 auto 1rem;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.05);position:relative;">
+        <div id="cropContainer" style="width:160px;height:160px;margin:0 auto 16px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.05);position:relative;">
           <img id="cropImage" src="/default-avatar.png" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);transition:transform .3s ease;cursor:grab;">
         </div>
-        <div class="slider-container" style="display:flex;align-items:center;gap:.5rem;justify-content:center;margin-bottom:1rem;">
+        <div class="slider-container" style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:16px;">
           <label for="avatarScale" style="color:#fff;">縮放：</label>
           <input type="range" id="avatarScale" min="0.5" max="2" step="0.01" value="1">
         </div>
-        <div id="avatarInputLabel" style="text-align:center;margin-bottom:1.5rem;">
+        <div id="avatarInputLabel" style="text-align:center;margin-bottom:24px;">
           <input type="file" id="avatarInput" accept="image/*" style="display:none;">
-          <span style="display:inline-block;padding:.5rem 1rem;background:linear-gradient(135deg,#fab1a0,#ffeaa7);border-radius:.5rem;color:#2d3436;cursor:pointer;" onclick="document.getElementById('avatarInput').click();">選擇新大頭貼</span>
+          <span style="display:inline-block;padding:8px 16px;background:linear-gradient(135deg,#fab1a0,#ffeaa7);border-radius:8px;color:#2d3436;cursor:pointer;" onclick="document.getElementById('avatarInput').click();">選擇新大頭貼</span>
         </div>
         <input type="text" id="nicknameInput" class="form-control mb-3" placeholder="輸入暱稱" style="background:rgba(255,255,255,0.2);border:none;color:#fff;">
-        <button id="saveProfileBtn" onclick="submitProfile()" style="width:100%;padding:.5rem;background:linear-gradient(135deg,#ffeaa7,#fab1a0);border:none;border-radius:.5rem;color:#2d3436;cursor:pointer;">儲存設定</button>
+        <button id="saveProfileBtn" onclick="submitProfile()" style="width:100%;padding:12px;background:linear-gradient(135deg,#ffeaa7,#fab1a0);border:none;border-radius:8px;color:#2d3436;cursor:pointer;">儲存設定</button>
       </div>
     </div>
   </div>
@@ -111,7 +102,7 @@
     let myId, myNickname, myAvatarUrl;
     let chats = [], currentChat = null, lbImages = [], lbIndex = 0, contextTargetMsgId = null;
 
-    /* 載入當前用戶 */
+    // 載入當前用戶資料與列表
     function loadMe(){
       fetch('/api/user/me')
         .then(r=>r.json())
@@ -126,9 +117,11 @@
         });
     }
 
-    /* 通知 */
+    // 好友邀請通知
     function toggleNotifMenu(){
-      const m=document.getElementById('notifMenu'); m.innerHTML='';
+      const m=document.getElementById('notifMenu');
+      if(m.style.display==='block'){ m.style.display='none'; return; }
+      m.innerHTML='';
       fetch('/api/user/friend-requests').then(r=>r.json()).then(reqs=>{
         if(!reqs.length) m.innerHTML='<div>沒有好友邀請。</div>';
         else reqs.forEach(rq=>{
@@ -142,26 +135,26 @@
           m.appendChild(d);
         });
       });
-      m.style.display = m.style.display==='block'?'none':'block';
+      m.style.display='block';
     }
     function respondFriend(id,ok){
       fetch('/api/user/respond-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requesterId:id,accept:ok})})
         .then(_=>{ toggleNotifMenu(); loadChats(); });
     }
 
-    /* 新增好友 */
+    // 新增好友
     function toggleAddFriend(){
-      const s = document.getElementById('addFriendSection');
+      const s=document.getElementById('addFriendSection');
       s.style.display = s.style.display==='block'?'none':'block';
     }
     function submitAddFriend(){
       const code=document.getElementById('friendIdInput').value.trim();
-      if(!code)return alert('請輸入用戶ID');
+      if(!code) return alert('請輸入用戶ID');
       fetch('/api/user/send-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
         .then(r=>r.ok?alert('✅ 邀請已送出'):r.json().then(d=>alert('❌ '+d.message)));
     }
 
-    /* 建群 */
+    // 建立群組
     function toggleCreateGroup(){
       const s=document.getElementById('createGroupSection');
       if(s.style.display!=='block'){ populateGroupMembers(); s.style.display='block'; }
@@ -169,7 +162,8 @@
     }
     function populateGroupMembers(){
       fetch('/api/user/me').then(r=>r.json()).then(u=>{
-        const cbx=document.getElementById('groupMembersCheckboxes'); cbx.innerHTML='';
+        const cbx=document.getElementById('groupMembersCheckboxes');
+        cbx.innerHTML='';
         Object.entries(u.friendsMap).forEach(([id,info])=>{
           cbx.insertAdjacentHTML('beforeend',`<div><input type="checkbox" id="gm_${id}" value="${id}"><label for="gm_${id}">${info.nickname}</label></div>`);
         });
@@ -177,14 +171,14 @@
     }
     function submitCreateGroup(){
       const name=document.getElementById('groupNameInput').value.trim();
-      if(!name)return alert('請輸入群組名稱');
+      if(!name) return alert('請輸入群組名稱');
       const members=[myId];
       document.querySelectorAll('#groupMembersCheckboxes input:checked').forEach(i=>members.push(i.value));
       fetch('/api/group/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,members})})
         .then(_=>{ loadChats(); toggleCreateGroup(); });
     }
 
-    /* 載列表 */
+    // 載入所有聊天（好友＋群組）
     function loadChats(){
       chats=[]; lbImages=[];
       Promise.all([ fetch('/api/user/me').then(r=>r.json()), fetch('/api/group/list').then(r=>r.json()) ])
@@ -192,36 +186,50 @@
           Object.entries(u.friendsMap).forEach(([id,info])=>{
             chats.push({id,type:'friend',name:info.nickname,avatarUrl:info.avatarUrl,isOnline:info.isOnline});
           });
-          gs.forEach(g=>{
-            chats.push({id:g._id,type:'group',name:g.name,avatarUrl:g.avatarUrl||'/default-avatar.png'});
-          });
+          gs.forEach(g=>{ chats.push({id:g._id,type:'group',name:g.name,avatarUrl:g.avatarUrl||'/default-avatar.png'}); });
           renderChatList();
         });
     }
     function renderChatList(){
-      const uniq={}; chats=chats.filter(c=>{const k=c.id+'|'+c.type;if(uniq[k])return false;uniq[k]=1;return true;});
-      const list=document.getElementById('friend-list'); list.innerHTML='';
+      const uniq={};
+      chats = chats.filter(c=>{
+        const k=c.id+'|'+c.type;
+        if(uniq[k]) return false;
+        uniq[k]=1; return true;
+      });
+      const list=document.getElementById('friend-list');
+      list.innerHTML='';
       chats.forEach(c=>{
-        const el=document.createElement('div'); el.className='friend'; el.dataset.id=c.id+'|'+c.type;
-        const dot=c.type==='friend'?`<span class="status-dot" style="background:${c.isOnline?'#4caf50':'#888'}"></span>`:'';
-        el.innerHTML=`<div class="status-wrapper"><img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">${dot}</div><span>${c.name}</span>`;
+        const el=document.createElement('div');
+        el.className='friend';
+        el.dataset.id=c.id+'|'+c.type;
+        const dot = c.type==='friend'
+          ? `<span class="status-dot" style="background:${c.isOnline?'#4caf50':'#888'}"></span>`
+          : '';
+        el.innerHTML=`
+          <div class="status-wrapper">
+            <img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">${dot}
+          </div>
+          <span>${c.name}</span>`;
         el.onclick=()=>openChat(c.id,c.type,c.name);
         list.appendChild(el);
       });
     }
 
-    /* 開聊天室 */
+    // 開啟聊天
     function openChat(id,type,name){
       currentChat={id,type};
-      document.getElementById('chat-with').textContent=type==='friend'?`與 ${name} 聊天中`:name;
-      document.getElementById('message-log').innerHTML=''; document.getElementById('chat-form').classList.remove('d-none');
+      document.getElementById('chat-with').textContent = type==='friend'?`與 ${name} 聊天中`:name;
+      document.getElementById('message-log').innerHTML='';
+      document.getElementById('chat-form').classList.remove('d-none');
       socket.emit('load history',{id,type});
     }
 
-    /* 發訊息 */
+    // 發送訊息
     document.getElementById('chat-form').addEventListener('submit',e=>{
       e.preventDefault();
-      const txt=document.getElementById('message-input').value.trim(); if(!txt||!currentChat)return;
+      const txt=document.getElementById('message-input').value.trim();
+      if(!txt||!currentChat) return;
       const now=new Date();
       if(currentChat.type==='friend'){
         socket.emit('private message',{toUserId:currentChat.id,message:txt});
@@ -233,108 +241,179 @@
       document.getElementById('message-input').value='';
     });
 
-    /* 圖片上傳 */
+    // 圖片上傳
     function triggerImageUpload(){ document.getElementById('image-input').click(); }
     function uploadImage(e){
-      const f=e.target.files[0]; if(!f||!currentChat)return;
-      const form=new FormData(); form.append('image',f); form.append('to',currentChat.id); form.append('type',currentChat.type);
-      fetch('/api/upload-image',{method:'POST',body:form}).then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
+      const f=e.target.files[0];
+      if(!f||!currentChat) return;
+      const form=new FormData();
+      form.append('image',f);
+      form.append('to',currentChat.id);
+      form.append('type',currentChat.type);
+      fetch('/api/upload-image',{method:'POST',body:form})
+        .then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
     }
 
-    /* 顯示訊息 */
+    // 顯示訊息
     function appendMessage(msg,isSelf){
-      const box=document.getElementById('message-log'),div=document.createElement('div');
-      div.className='message'+(isSelf?' self':''); if(msg.id)div.dataset.id=msg.id;
+      const box=document.getElementById('message-log');
+      const div=document.createElement('div');
+      div.className='message'+(isSelf?' self':'');
+      if(msg.id) div.dataset.id=msg.id;
       let content='';
       if(msg.recalled) content='<em style="color:gray;">此則訊息已被收回</em>';
       else if(msg.imageUrl) content=`<img src="${msg.imageUrl}" class="content-image">`;
       else content=msg.message;
-      div.innerHTML=`<div style="display:flex;gap:.5rem;"><img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle"><div><strong>${msg.nickname}</strong><div class="bubble-content">${content}</div><span class="time">${new Date(msg.timestamp).toLocaleTimeString('zh-TW')}</span>${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}</div></div>`;
+      div.innerHTML=`
+        <div style="display:flex;gap:.5rem;">
+          <img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
+          <div>
+            <strong>${msg.nickname}</strong>
+            <div class="bubble-content">${content}</div>
+            <span class="time">${new Date(msg.timestamp).toLocaleTimeString('zh-TW')}</span>
+            ${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}
+          </div>
+        </div>`;
       if(isSelf&&!msg.recalled&&msg.id){
         div.addEventListener('contextmenu',e=>{
-          e.preventDefault();contextTargetMsgId=msg.id;
+          e.preventDefault();
+          contextTargetMsgId=msg.id;
           const mnu=document.getElementById('msg-context-menu');
-          mnu.style.top=e.pageY+'px';mnu.style.left=e.pageX+'px';mnu.style.display='block';
+          mnu.style.top=e.pageY+'px';
+          mnu.style.left=e.pageX+'px';
+          mnu.style.display='block';
         });
       }
-      box.appendChild(div);box.scrollTop=box.scrollHeight;
+      box.appendChild(div);
+      box.scrollTop=box.scrollHeight;
       if(msg.imageUrl&&!msg.recalled){
         lbImages.push(msg.imageUrl);
         setTimeout(()=>{
-          const imgs=document.querySelectorAll('#message-log img.content-image'),idx=lbImages.length-1;
+          const imgs=document.querySelectorAll('img.content-image');
+          const idx=lbImages.length-1;
           imgs[imgs.length-1].onclick=()=>openLightbox(idx);
         },0);
       }
     }
     document.addEventListener('click',e=>{
       const mnu=document.getElementById('msg-context-menu');
-      if(!mnu.contains(e.target))mnu.style.display='none';
+      if(!mnu.contains(e.target)) mnu.style.display='none';
     });
     function recallContextMessage(){
-      if(!contextTargetMsgId)return;
+      if(!contextTargetMsgId) return;
       fetch('/api/message/recall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:contextTargetMsgId})})
         .then(r=>r.ok&&(()=>{
           const el=document.querySelector(`.message[data-id="${contextTargetMsgId}"] .bubble-content`);
-          if(el)el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';
+          if(el) el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';
         })());
-      document.getElementById('msg-context-menu').style.display='none';contextTargetMsgId=null;
+      document.getElementById('msg-context-menu').style.display='none';
+      contextTargetMsgId=null;
     }
 
-    /* Lightbox */
+    // Lightbox
     function openLightbox(i){
-      lbIndex=i;document.getElementById('lb-img').src=lbImages[i];document.getElementById('lightbox').style.display='flex';
+      lbIndex=i;
+      document.getElementById('lb-img').src=lbImages[i];
+      document.getElementById('lightbox').style.display='flex';
     }
     document.getElementById('lb-close').onclick=()=>document.getElementById('lightbox').style.display='none';
-    document.getElementById('lb-prev').onclick=()=>{lbIndex=(lbIndex-1+lbImages.length)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIndex];};
-    document.getElementById('lb-next').onclick=()=>{lbIndex=(lbIndex+1)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIndex];};
-    document.getElementById('lightbox').onclick=e=>{if(e.target.id==='lightbox')document.getElementById('lightbox').style.display='none';};
+    document.getElementById('lb-prev').onclick=()=>{
+      lbIndex=(lbIndex-1+lbImages.length)%lbImages.length;
+      document.getElementById('lb-img').src=lbImages[lbIndex];
+    };
+    document.getElementById('lb-next').onclick=()=>{
+      lbIndex=(lbIndex+1)%lbImages.length;
+      document.getElementById('lb-img').src=lbImages[lbIndex];
+    };
+    document.getElementById('lightbox').onclick=e=>{
+      if(e.target.id==='lightbox') document.getElementById('lightbox').style.display='none';
+    };
 
-    /* Tab 切換 */
+    // Profile Modal
     function switchTab(tab){
       document.getElementById('tabInfo').classList.toggle('active',tab==='info');
       document.getElementById('tabEdit').classList.toggle('active',tab==='edit');
       document.getElementById('infoSection').style.display = tab==='info'?'block':'none';
       document.getElementById('editSection').style.display = tab==='edit'?'block':'none';
     }
-
-    /* Profile Modal 開關 */
     document.getElementById('profileBtn').onclick=()=>document.getElementById('profileModal').style.display='flex';
     document.getElementById('closeProfile').onclick=()=>document.getElementById('profileModal').style.display='none';
 
-    /* 編輯頭像縮放 */
+    // Avatar Crop & Upload
     document.getElementById('avatarScale').addEventListener('input',e=>{
-      document.getElementById('cropImage').style.transform=`translate(-50%,-50%) scale(${e.target.value})`;
+      document.getElementById('cropImage').style.transform = `translate(-50%,-50%) scale(${e.target.value})`;
     });
-
-    /* 選新頭像 */
     document.getElementById('avatarInput').addEventListener('change',e=>{
-      const f=e.target.files[0];if(!f)return;
-      document.getElementById('cropImage').src=URL.createObjectURL(f);
-      document.getElementById('avatarScale').value=1;
-      document.getElementById('cropImage').style.transform='translate(-50%,-50%) scale(1)';
+      const f=e.target.files[0]; if(!f) return;
+      document.getElementById('cropImage').src = URL.createObjectURL(f);
+      document.getElementById('avatarScale').value = 1;
+      document.getElementById('cropImage').style.transform = 'translate(-50%,-50%) scale(1)';
     });
-
-    /* 儲存設定 */
     function submitProfile(){
       const form=new FormData();
-      const nick=document.getElementById('nicknameInput').value.trim();if(nick)form.append('nickname',nick);
-      const f=document.getElementById('avatarInput').files[0];if(f)form.append('avatar',f);
-      fetch('/api/user/update-profile',{method:'POST',body:form})
-        .then(r=>r.json()).then(res=>{if(res.message){alert('更新成功');document.getElementById('profileModal').style.display='none';loadMe();}});
+      const nick=document.getElementById('nicknameInput').value.trim();
+      if(nick) form.append('nickname',nick);
+      const f=document.getElementById('avatarInput').files[0];
+      if(f){
+        const canvas=document.createElement('canvas');
+        const img=document.getElementById('cropImage');
+        const scale=parseFloat(document.getElementById('avatarScale').value);
+        const size=160;
+        canvas.width=canvas.height=size;
+        const ctx=canvas.getContext('2d');
+        const tmp=new Image();
+        tmp.src=img.src;
+        tmp.onload=()=>{
+          ctx.drawImage(tmp,
+            (size/2 - (tmp.width*scale)/2),
+            (size/2 - (tmp.height*scale)/2),
+            tmp.width*scale,
+            tmp.height*scale
+          );
+          canvas.toBlob(blob=>{
+            form.append('avatar',blob,'avatar.png');
+            fetch('/api/user/update-profile',{method:'POST',body:form})
+              .then(r=>r.json()).then(res=>{ alert('更新成功'); document.getElementById('profileModal').style.display='none'; loadMe(); });
+          });
+        };
+      } else {
+        fetch('/api/user/update-profile',{method:'POST',body:form})
+          .then(r=>r.json()).then(res=>{ alert('更新成功'); document.getElementById('profileModal').style.display='none'; loadMe(); });
+      }
     }
 
-    /* Socket 事件 */
+    // Socket 事件接收
     socket.on('connect',()=>{
-      socket.on('friend-online',e=>{const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);if(d)d.style.background='#4caf50';});
-      socket.on('friend-offline',e=>{const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);if(d)d.style.background='#888';});
-      socket.on('new-friend',f=>{if(!chats.find(c=>c.id===f.id&&c.type==='friend')){chats.push({id:f.id,type:'friend',name:f.nickname,avatarUrl:f.avatarUrl,isOnline:f.isOnline});renderChatList();}});
-      socket.on('chat history',data=>data.messages.forEach(m=>appendMessage(m,m.from===myId)));
-      socket.on('private message',m=>{if(currentChat?.type==='friend'&&m.from===currentChat.id)appendMessage(m,false);});
-      socket.on('group message',m=>{if(currentChat?.type==='group'&&m.groupId===currentChat.id)appendMessage(m,false);});
-      socket.on('message recalled',d=>{const el=document.querySelector(`.message[data-id="${d.messageId}"] .bubble-content`);if(el)el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';});
+      socket.on('friend-online',e=>{
+        const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
+        if(d) d.style.background='#4caf50';
+      });
+      socket.on('friend-offline',e=>{
+        const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
+        if(d) d.style.background='#888';
+      });
+      socket.on('new-friend',f=>{
+        if(!chats.find(c=>c.id===f.id&&c.type==='friend')){
+          chats.push({id:f.id,type:'friend',name:f.nickname,avatarUrl:f.avatarUrl,isOnline:f.isOnline});
+          renderChatList();
+        }
+      });
+      socket.on('chat history',data=>{
+        data.messages.forEach(m=>appendMessage(m,m.from===myId));
+      });
+      socket.on('private message',m=>{
+        if(currentChat?.type==='friend'&&m.from===currentChat.id) appendMessage(m,false);
+      });
+      socket.on('group message',m=>{
+        if(currentChat?.type==='group'&&m.groupId===currentChat.id) appendMessage(m,false);
+      });
+      socket.on('message recalled',d=>{
+        const el=document.querySelector(`.message[data-id="${d.messageId}"] .bubble-content`);
+        if(el) el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';
+      });
     });
 
-    window.onload=()=>{loadMe();};
+    window.onload = ()=>{ loadMe(); };
   </script>
 </body>
 </html>
