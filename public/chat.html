@@ -14,7 +14,7 @@
   <div id="overlay"></div>
 
   <div class="app-container">
-    <div class="sidebar" id="sidebar">
+    <div class="sidebar closed" id="sidebar">
       <h5 class="sidebar-header">聊天清單</h5>
       <div class="friend-list" id="friend-list"></div>
       <div class="p-3">
@@ -63,20 +63,33 @@
   <div id="profileModal">
     <div id="profileContent">
       <button id="closeProfile">✕</button>
-      <h4>個人資料編輯</h4>
-      <div id="cropContainer">
-        <img id="cropImage" src="/default-avatar.png" alt="大頭貼">
+      <h4>個人資料</h4>
+      <div id="profileTabs">
+        <button id="tabInfo" class="active" onclick="switchTab('info')">個人資料</button>
+        <button id="tabEdit" onclick="switchTab('edit')">編輯個人資料</button>
       </div>
-      <div class="slider-container">
-        <label for="avatarScale">縮放：</label>
-        <input type="range" id="avatarScale" min="0.5" max="2" step="0.01" value="1">
+      <!-- 顯示區 -->
+      <div id="infoSection" class="profile-section active">
+        <img id="infoAvatar" src="/default-avatar.png" alt="頭像">
+        <div class="info-item">暱稱：<span id="infoNickname"></span></div>
+        <div class="info-item">用戶ID：<span id="infoUserCode"></span></div>
       </div>
-      <div id="avatarInputLabel">
-        <input type="file" id="avatarInput" accept="image/*">
-        <span>選擇新大頭貼</span>
+      <!-- 編輯區 -->
+      <div id="editSection" class="profile-section">
+        <div id="cropContainer">
+          <img id="cropImage" src="/default-avatar.png" alt="大頭貼">
+        </div>
+        <div class="slider-container">
+          <label for="avatarScale">縮放：</label>
+          <input type="range" id="avatarScale" min="0.5" max="2" step="0.01" value="1">
+        </div>
+        <div id="avatarInputLabel">
+          <input type="file" id="avatarInput" accept="image/*">
+          <span>選擇新大頭貼</span>
+        </div>
+        <input type="text" id="nicknameInput" class="form-control mb-3" placeholder="輸入暱稱">
+        <button id="saveProfileBtn" onclick="submitProfile()">儲存設定</button>
       </div>
-      <input type="text" id="nicknameInput" class="form-control mb-3" placeholder="輸入暱稱">
-      <button id="saveProfileBtn" onclick="submitProfile()">儲存設定</button>
     </div>
   </div>
 
@@ -94,159 +107,223 @@
     let chats = [], currentChat = null;
     let lbImages = [], lbIndex = 0, contextTargetMsgId = null;
 
-    /* 側邊欄 */
+    // 側邊欄切換
     function toggleSidebar(){
       document.getElementById('sidebar').classList.toggle('closed');
       document.getElementById('overlay').classList.toggle('show');
     }
-    function closeSidebar(){
-      document.getElementById('sidebar').classList.add('closed');
-      document.getElementById('overlay').classList.remove('show');
+
+    // 載入當前用戶與列表
+    function loadMe(){
+      fetch('/api/user/me')
+        .then(r=>r.json())
+        .then(u=>{
+          myId = u.id;
+          myNickname = u.nickname;
+          myAvatarUrl = u.avatarUrl;
+          document.getElementById('infoAvatar').src = u.avatarUrl;
+          document.getElementById('infoNickname').textContent = u.nickname;
+          document.getElementById('infoUserCode').textContent = u.userCode;
+          document.getElementById('cropImage').src = u.avatarUrl;
+          document.getElementById('nicknameInput').value = u.nickname;
+          loadChats();
+        });
     }
 
-    /* 載入使用者 & 清單 */
-    function loadMe(){
-      fetch('/api/user/me').then(r=>r.json()).then(u=>{
-        myId=u.id; myNickname=u.nickname; myAvatarUrl=u.avatarUrl;
-        document.getElementById('cropImage').src = u.avatarUrl;
-        document.getElementById('nicknameInput').value = u.nickname;
+    // 通知選單
+    function toggleNotifMenu(){
+      const m = document.getElementById('notifMenu');
+      m.innerHTML = '';
+      fetch('/api/user/friend-requests')
+        .then(r=>r.json())
+        .then(reqs=>{
+          if(!reqs.length){
+            m.innerHTML = '<div class="p-2">沒有好友邀請。</div>';
+          } else {
+            reqs.forEach(rq=>{
+              const d = document.createElement('div');
+              d.className = 'p-2 border-bottom';
+              d.innerHTML = `
+                <img src="${rq.avatarUrl}" width="30" height="30" class="rounded-circle">
+                ${rq.nickname}
+                <button onclick="respondFriend('${rq._id}',true)" class="btn btn-sm btn-success ms-2">接受</button>
+                <button onclick="respondFriend('${rq._id}',false)" class="btn btn-sm btn-danger ms-1">拒絕</button>`;
+              m.appendChild(d);
+            });
+          }
+        });
+      m.style.display = m.style.display === 'block' ? 'none' : 'block';
+    }
+    function respondFriend(id, ok){
+      fetch('/api/user/respond-friend-request',{
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({requesterId:id, accept:ok})
+      }).then(_=>{
+        toggleNotifMenu();
         loadChats();
       });
     }
 
-    /* 通知 */
-    function toggleNotifMenu(){
-      const m = document.getElementById('notifMenu');
-      m.innerHTML='';
-      fetch('/api/user/friend-requests').then(r=>r.json()).then(reqs=>{
-        if(!reqs.length) m.innerHTML='<div class="p-2">沒有好友邀請。</div>';
-        else reqs.forEach(rq=>{
-          const d=document.createElement('div'); d.className='p-2 border-bottom';
-          d.innerHTML=`
-            <img src="${rq.avatarUrl}" width="30" height="30" class="rounded-circle"> 
-            ${rq.nickname}
-            <button onclick="respondFriend('${rq._id}',true)" class="btn btn-sm btn-success ms-2">接受</button>
-            <button onclick="respondFriend('${rq._id}',false)" class="btn btn-sm btn-danger ms-1">拒絕</button>`;
-          m.appendChild(d);
-        });
-      });
-      m.style.display = m.style.display==='block'?'none':'block';
-    }
-    function respondFriend(id,ok){
-      fetch('/api/user/respond-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requesterId:id,accept:ok})})
-        .then(_=>{ toggleNotifMenu(); loadChats(); });
-    }
-
-    /* 新增好友 */
+    // 新增好友
     function toggleAddFriend(){
-      const s=document.getElementById('addFriendSection');
-      s.style.display= s.style.display==='block'?'none':'block';
+      const s = document.getElementById('addFriendSection');
+      s.style.display = s.style.display==='block'?'none':'block';
     }
     function submitAddFriend(){
-      const code=document.getElementById('friendIdInput').value.trim();
+      const code = document.getElementById('friendIdInput').value.trim();
       if(!code) return alert('請輸入用戶ID');
-      fetch('/api/user/send-friend-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})})
-        .then(r=>r.ok?alert('✅ 邀請已送出'):r.json().then(d=>alert('❌ '+d.message)));
+      fetch('/api/user/send-friend-request',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({code})
+      }).then(r=>r.ok?alert('✅ 邀請已送出'):r.json().then(d=>alert('❌ '+d.message)));
     }
 
-    /* 建立群組 */
+    // 建群
     function toggleCreateGroup(){
-      const s=document.getElementById('createGroupSection');
-      if(s.style.display!=='block'){ populateGroupMembers(); s.style.display='block'; }
-      else s.style.display='none';
+      const s = document.getElementById('createGroupSection');
+      if(s.style.display!=='block'){
+        populateGroupMembers();
+        s.style.display='block';
+      } else s.style.display='none';
     }
     function populateGroupMembers(){
       fetch('/api/user/me').then(r=>r.json()).then(u=>{
-        const cbx=document.getElementById('groupMembersCheckboxes');
-        cbx.innerHTML='';
+        const cbx = document.getElementById('groupMembersCheckboxes');
+        cbx.innerHTML = '';
         Object.entries(u.friendsMap).forEach(([id,info])=>{
           cbx.insertAdjacentHTML('beforeend',`
-            <div><input type="checkbox" id="gm_${id}" value="${id}">
-            <label for="gm_${id}">${info.nickname}</label></div>`);
+            <div>
+              <input type="checkbox" id="gm_${id}" value="${id}">
+              <label for="gm_${id}">${info.nickname}</label>
+            </div>`);
         });
       });
     }
     function submitCreateGroup(){
-      const name=document.getElementById('groupNameInput').value.trim();
+      const name = document.getElementById('groupNameInput').value.trim();
       if(!name) return alert('請輸入群組名稱');
-      const members=[myId];
-      document.querySelectorAll('#groupMembersCheckboxes input:checked').forEach(i=>members.push(i.value));
-      fetch('/api/group/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,members})})
-        .then(_=>{ loadChats(); toggleCreateGroup(); });
+      const members = [myId];
+      document.querySelectorAll('#groupMembersCheckboxes input:checked')
+        .forEach(i=>members.push(i.value));
+      fetch('/api/group/create',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name,members})
+      }).then(_=>{
+        loadChats();
+        toggleCreateGroup();
+      });
     }
 
-    /* 載清單 */
+    // 載列表
     function loadChats(){
-      chats=[]; lbImages=[];
-      Promise.all([ fetch('/api/user/me').then(r=>r.json()), fetch('/api/group/list').then(r=>r.json()) ])
-        .then(([u,gs])=>{
-          Object.entries(u.friendsMap).forEach(([id,info])=>{
-            chats.push({id,type:'friend',name:info.nickname,avatarUrl:info.avatarUrl,isOnline:info.isOnline});
-          });
-          gs.forEach(g=>{
-            chats.push({id:g._id,type:'group',name:g.name,avatarUrl:g.avatarUrl||'/default-avatar.png'});
-          });
-          renderChatList();
+      chats = []; lbImages = [];
+      Promise.all([
+        fetch('/api/user/me').then(r=>r.json()),
+        fetch('/api/group/list').then(r=>r.json())
+      ]).then(([u,gs])=>{
+        Object.entries(u.friendsMap).forEach(([id,info])=>{
+          chats.push({id,type:'friend',name:info.nickname,avatarUrl:info.avatarUrl,isOnline:info.isOnline});
         });
+        gs.forEach(g=>{
+          chats.push({id:g._id,type:'group',name:g.name,avatarUrl:g.avatarUrl||'/default-avatar.png'});
+        });
+        renderChatList();
+      });
     }
     function renderChatList(){
-      const uniq={}; chats=chats.filter(c=>{ const k=c.id+'|'+c.type; if(uniq[k])return false; uniq[k]=1; return true; });
-      const list=document.getElementById('friend-list'); list.innerHTML='';
+      const uniq = {};
+      chats = chats.filter(c=>{
+        const k = c.id+'|'+c.type;
+        if(uniq[k]) return false;
+        uniq[k] = true;
+        return true;
+      });
+      const list = document.getElementById('friend-list');
+      list.innerHTML = '';
       chats.forEach(c=>{
-        const el=document.createElement('div'); el.className='friend'; el.dataset.id=c.id+'|'+c.type;
-        const dot=c.type==='friend'?`<span class="status-dot" style="background:${c.isOnline?'#4caf50':'#888'}"></span>`:'';
-        el.innerHTML=`
+        const el = document.createElement('div');
+        el.className = 'friend';
+        el.dataset.id = c.id+'|'+c.type;
+        const dot = c.type==='friend'
+          ? `<span class="status-dot" style="background:${c.isOnline?'#4caf50':'#888'}"></span>`
+          : '';
+        el.innerHTML = `
           <div class="status-wrapper">
-            <img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">${dot}
-          </div><span>${c.name}</span>`;
-        el.onclick=()=>openChat(c.id,c.type,c.name);
+            <img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">
+            ${dot}
+          </div>
+          <span>${c.name}</span>`;
+        el.onclick = ()=>openChat(c.id,c.type,c.name);
         list.appendChild(el);
       });
     }
 
-    /* 打開聊天室 */
+    // 開聊天室
     function openChat(id,type,name){
-      currentChat={id,type};
-      document.getElementById('chat-with').textContent=type==='friend'?`與 ${name} 聊天中`:name;
-      document.getElementById('message-log').innerHTML='';
+      currentChat = {id,type};
+      document.getElementById('chat-with').textContent =
+        type==='friend'?`與 ${name} 聊天中`: name;
+      document.getElementById('message-log').innerHTML = '';
       document.getElementById('chat-form').classList.remove('d-none');
       socket.emit('load history',{id,type});
     }
 
-    /* 發訊息 */
-    document.getElementById('chat-form').addEventListener('submit',e=>{
+    // 發訊息
+    document.getElementById('chat-form').addEventListener('submit', e=>{
       e.preventDefault();
-      const txt=document.getElementById('message-input').value.trim();
-      if(!txt||!currentChat) return;
-      const now=new Date();
+      const txt = document.getElementById('message-input').value.trim();
+      if(!txt || !currentChat) return;
+      const now = new Date();
       if(currentChat.type==='friend'){
         socket.emit('private message',{toUserId:currentChat.id,message:txt});
-        appendMessage({id:null,from:myId,to:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
+        appendMessage({
+          id:null,from:myId,to:currentChat.id,message:txt,
+          imageUrl:null,timestamp:now,read:false,recalled:false,
+          avatarUrl:myAvatarUrl,nickname:myNickname
+        }, true);
       } else {
         socket.emit('group message',{to:currentChat.id,message:txt});
-        appendMessage({id:null,from:myId,groupId:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
+        appendMessage({
+          id:null,from:myId,groupId:currentChat.id,message:txt,
+          imageUrl:null,timestamp:now,read:false,recalled:false,
+          avatarUrl:myAvatarUrl,nickname:myNickname
+        }, true);
       }
-      document.getElementById('message-input').value='';
+      document.getElementById('message-input').value = '';
     });
 
-    /* 圖片上傳 */
+    // 圖片上傳
     function triggerImageUpload(){ document.getElementById('image-input').click(); }
     function uploadImage(e){
-      const f=e.target.files[0]; if(!f||!currentChat) return;
-      const form=new FormData(); form.append('image',f); form.append('to',currentChat.id); form.append('type',currentChat.type);
-      fetch('/api/upload-image',{method:'POST',body:form}).then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
+      const f = e.target.files[0];
+      if(!f || !currentChat) return;
+      const form = new FormData();
+      form.append('image', f);
+      form.append('to', currentChat.id);
+      form.append('type', currentChat.type);
+      fetch('/api/upload-image',{method:'POST',body:form})
+        .then(r=>r.json())
+        .then(m=>appendMessage(m, m.from===myId));
     }
 
-    /* 顯示訊息 */
-    function appendMessage(msg,isSelf){
-      const box=document.getElementById('message-log');
-      const div=document.createElement('div'); div.className='message'+(isSelf?' self':'');
-      if(msg.id)div.dataset.id=msg.id;
+    // 顯示訊息
+    function appendMessage(msg, isSelf){
+      const box = document.getElementById('message-log');
+      const div = document.createElement('div');
+      div.className = 'message' + (isSelf?' self':'');
+      if(msg.id) div.dataset.id = msg.id;
       let content;
-      if(msg.recalled) content='<em style="color:gray;">此則訊息已被收回</em>';
-      else if(msg.imageUrl) content=`<img src="${msg.imageUrl}" class="content-image">`;
-      else content=msg.message;
-      div.innerHTML=`
+      if(msg.recalled){
+        content = '<em style="color:gray;">此則訊息已被收回</em>';
+      } else if(msg.imageUrl){
+        content = `<img src="${msg.imageUrl}" class="content-image">`;
+      } else {
+        content = msg.message;
+      }
+      div.innerHTML = `
         <div style="display:flex;gap:.5rem;">
           <img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
           <div>
@@ -256,74 +333,99 @@
             ${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}
           </div>
         </div>`;
-      if(isSelf&&!msg.recalled&&msg.id){
-        div.addEventListener('contextmenu',e=>{
+      if(isSelf && !msg.recalled && msg.id){
+        div.addEventListener('contextmenu', e=>{
           e.preventDefault();
-          contextTargetMsgId=msg.id;
-          const mnu=document.getElementById('msg-context-menu');
-          mnu.style.top=e.pageY+'px'; mnu.style.left=e.pageX+'px'; mnu.style.display='block';
+          contextTargetMsgId = msg.id;
+          const mnu = document.getElementById('msg-context-menu');
+          mnu.style.top = e.pageY+'px';
+          mnu.style.left = e.pageX+'px';
+          mnu.style.display = 'block';
         });
       }
-      box.appendChild(div); box.scrollTop=box.scrollHeight;
-      if(msg.imageUrl&&!msg.recalled){
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      if(msg.imageUrl && !msg.recalled){
         lbImages.push(msg.imageUrl);
         setTimeout(()=>{
-          const imgs=document.querySelectorAll('#message-log img.content-image');
-          const imgEl=imgs[imgs.length-1], idx=lbImages.length-1;
-          imgEl.onclick=()=>openLightbox(idx);
+          const imgs = document.querySelectorAll('#message-log img.content-image');
+          const imgEl = imgs[imgs.length-1], idx = lbImages.length-1;
+          imgEl.onclick = ()=>openLightbox(idx);
         },0);
       }
     }
-    document.addEventListener('click',e=>{
-      const mnu=document.getElementById('msg-context-menu');
-      if(!mnu.contains(e.target)) mnu.style.display='none';
+    document.addEventListener('click', e=>{
+      const mnu = document.getElementById('msg-context-menu');
+      if(!mnu.contains(e.target)) mnu.style.display = 'none';
     });
     function recallContextMessage(){
-      if(!contextTargetMsgId)return;
-      fetch('/api/message/recall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:contextTargetMsgId})})
-        .then(r=>r.ok&&(()=>{
-          const el=document.querySelector(`.message[data-id="${contextTargetMsgId}"] .bubble-content`);
-          if(el)el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';
-        })());
-      document.getElementById('msg-context-menu').style.display='none';
-      contextTargetMsgId=null;
+      if(!contextTargetMsgId) return;
+      fetch('/api/message/recall',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messageId:contextTargetMsgId})
+      }).then(r=>{
+        if(r.ok){
+          const el = document.querySelector(`.message[data-id="${contextTargetMsgId}"] .bubble-content`);
+          if(el) el.innerHTML = '<em style="color:gray;">此則訊息已被收回</em>';
+        }
+      });
+      document.getElementById('msg-context-menu').style.display = 'none';
+      contextTargetMsgId = null;
     }
 
-    /* Lightbox */
+    // Lightbox
     function openLightbox(i){
-      lbIndex=i; document.getElementById('lb-img').src=lbImages[i]; document.getElementById('lightbox').style.display='flex';
+      lbIndex = i;
+      document.getElementById('lb-img').src = lbImages[i];
+      document.getElementById('lightbox').style.display = 'flex';
     }
-    document.getElementById('lb-close').onclick=()=>document.getElementById('lightbox').style.display='none';
-    document.getElementById('lb-prev').onclick=()=>{lbIndex=(lbIndex-1+lbImages.length)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIndex];};
-    document.getElementById('lb-next').onclick=()=>{lbIndex=(lbIndex+1)%lbImages.length;document.getElementById('lb-img').src=lbImages[lbIndex];};
-    document.getElementById('lightbox').onclick=e=>{if(e.target.id==='lightbox')document.getElementById('lightbox').style.display='none';};
+    document.getElementById('lb-close').onclick = ()=>document.getElementById('lightbox').style.display = 'none';
+    document.getElementById('lb-prev').onclick = ()=>{ lbIndex = (lbIndex-1+lbImages.length)%lbImages.length; document.getElementById('lb-img').src = lbImages[lbIndex]; };
+    document.getElementById('lb-next').onclick = ()=>{ lbIndex = (lbIndex+1)%lbImages.length; document.getElementById('lb-img').src = lbImages[lbIndex]; };
+    document.getElementById('lightbox').onclick = e=>{ if(e.target.id==='lightbox') document.getElementById('lightbox').style.display = 'none'; };
 
-    /* Profile Modal */
+    // Tab 切換
+    function switchTab(tab){
+      document.getElementById('tabInfo').classList.toggle('active', tab==='info');
+      document.getElementById('tabEdit').classList.toggle('active', tab==='edit');
+      document.getElementById('infoSection').classList.toggle('active', tab==='info');
+      document.getElementById('editSection').classList.toggle('active', tab==='edit');
+    }
+
+    // Profile Modal 開/關
     document.getElementById('profileBtn').onclick = ()=>{
       document.getElementById('profileModal').classList.add('show');
     };
     document.getElementById('closeProfile').onclick = ()=>{
       document.getElementById('profileModal').classList.remove('show');
     };
-    document.getElementById('avatarScale').addEventListener('input',e=>{
+
+    // 編輯大頭貼縮放
+    document.getElementById('avatarScale').addEventListener('input', e=>{
       document.getElementById('cropImage').style.transform =
         `translate(-50%,-50%) scale(${e.target.value})`;
     });
-    document.getElementById('avatarInput').addEventListener('change',e=>{
-      const f=e.target.files[0];
-      if(!f)return;
+
+    // 選擇新大頭貼
+    document.getElementById('avatarInput').addEventListener('change', e=>{
+      const f = e.target.files[0];
+      if(!f) return;
       document.getElementById('cropImage').src = URL.createObjectURL(f);
       document.getElementById('avatarScale').value = 1;
       document.getElementById('cropImage').style.transform = 'translate(-50%,-50%) scale(1)';
     });
+
+    // 提交個人資料更新
     function submitProfile(){
-      const form=new FormData();
-      const nick=document.getElementById('nicknameInput').value.trim();
-      if(nick) form.append('nickname',nick);
-      const f=document.getElementById('avatarInput').files[0];
-      if(f) form.append('avatar',f);
+      const form = new FormData();
+      const nick = document.getElementById('nicknameInput').value.trim();
+      if(nick) form.append('nickname', nick);
+      const f = document.getElementById('avatarInput').files[0];
+      if(f) form.append('avatar', f);
       fetch('/api/user/update-profile',{method:'POST',body:form})
-        .then(r=>r.json()).then(res=>{
+        .then(r=>r.json())
+        .then(res=>{
           if(res.message){
             alert('更新成功');
             document.getElementById('profileModal').classList.remove('show');
@@ -332,34 +434,34 @@
         });
     }
 
-    /* Socket 事件 */
-    socket.on('connect',()=>{
-      socket.on('friend-online',e=>{
-        const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
-        if(d)d.style.background='#4caf50';
+    // Socket 事件
+    socket.on('connect', ()=>{
+      socket.on('friend-online', e=>{
+        const d = document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
+        if(d) d.style.background = '#4caf50';
       });
-      socket.on('friend-offline',e=>{
-        const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
-        if(d)d.style.background='#888';
+      socket.on('friend-offline', e=>{
+        const d = document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
+        if(d) d.style.background = '#888';
       });
-      socket.on('new-friend',f=>{
+      socket.on('new-friend', f=>{
         if(!chats.find(c=>c.id===f.id&&c.type==='friend')){
           chats.push({id:f.id,type:'friend',name:f.nickname,avatarUrl:f.avatarUrl,isOnline:f.isOnline});
           renderChatList();
         }
       });
-      socket.on('chat history',data=>{
-        data.messages.forEach(m=>appendMessage(m,m.from===myId));
+      socket.on('chat history', data=>{
+        data.messages.forEach(m=>appendMessage(m, m.from===myId));
       });
-      socket.on('private message',m=>{
-        if(currentChat?.type==='friend'&&m.from===currentChat.id) appendMessage(m,false);
+      socket.on('private message', m=>{
+        if(currentChat?.type==='friend' && m.from===currentChat.id) appendMessage(m,false);
       });
-      socket.on('group message',m=>{
-        if(currentChat?.type==='group'&&m.groupId===currentChat.id) appendMessage(m,false);
+      socket.on('group message', m=>{
+        if(currentChat?.type==='group' && m.groupId===currentChat.id) appendMessage(m,false);
       });
-      socket.on('message recalled',d=>{
-        const el=document.querySelector(`.message[data-id="${d.messageId}"] .bubble-content`);
-        if(el) el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';
+      socket.on('message recalled', d=>{
+        const el = document.querySelector(`.message[data-id="${d.messageId}"] .bubble-content`);
+        if(el) el.innerHTML = '<em style="color:gray;">此則訊息已被收回</em>';
       });
     });
 
