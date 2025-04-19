@@ -124,3 +124,16 @@ img.content-image:hover{transform:scale(1.05);}
 
 /* ---------- Animations ---------- */
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
+/* 隱藏漢堡切換按鈕 */
+#sidebarToggle { display: none !important; }
+
+/* 調整頂部按鈕間距 */
+#top-controls {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  z-index: 100;
+}
+
