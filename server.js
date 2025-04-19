@@ -11,9 +11,9 @@ const fs = require('fs');
 const User          = require('./models/User');
 const Message       = require('./models/Message');
 const Group         = require('./models/Group');
-const FriendRequest = require('./models/FriendRequest'); // 確保 models/FriendRequest.js 已存在
+const FriendRequest = require('./models/FriendRequest'); // 確保已建立此模型
 
-// 1. 連線到 MongoDB
+// 1. 連線 MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
@@ -23,16 +23,16 @@ const server = http.createServer(app);
 const io     = new Server(server);
 app.set('io', io);
 
-// 2. Express 中間件設定
+// 2. Express 中間件
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 3. 靜態資源路徑
+// 3. 靜態資源
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/avatars', express.static(path.join(__dirname, 'public/avatars')));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// 4. 確保 avatars 與 uploads 資料夾存在
+// 4. 建立資料夾
 const avatarsDir = path.join(__dirname, 'public/avatars');
 const uploadsDir = path.join(__dirname, 'public/uploads');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
@@ -47,38 +47,44 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
-// 6. Passport 初始化
+// 6. Passport
 app.use(passport.initialize());
 app.use(passport.session());
 require('./config/passport-setup');
 
-// 7. 路由掛載
+// 7. 路由
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/group', require('./routes/groupRoutes'));
 app.use('/api/upload-image', require('./routes/uploadRoutes'));
 app.use('/api/message', require('./routes/messageRoutes'));
 
-// 8. Helper: 驗證中間件
+// 8. 驗證中間件
 const ensureAuth = (req, res, next) =>
   req.isAuthenticated() ? next() : res.redirect('/');
 const ensureNick = (req, res, next) =>
   req.user.isNicknameSet ? next() : res.redirect('/setup');
 
-// 9. HTML 介面路由
+// 9. HTML 路由
 app.get('/', (req, res) => {
-  if (!req.isAuthenticated()) return res.sendFile(path.join(__dirname, 'public/index.html'));
-  return req.user.isNicknameSet ? res.redirect('/chat') : res.redirect('/setup');
+  if (!req.isAuthenticated()) {
+    return res.sendFile(path.join(__dirname, 'public/index.html'));
+  }
+  return req.user.isNicknameSet
+    ? res.redirect('/chat')
+    : res.redirect('/setup');
 });
 app.get('/setup', ensureAuth, (req, res) => {
-  if (req.user.isNicknameSet) return res.redirect('/chat');
+  if (req.user.isNicknameSet) {
+    return res.redirect('/chat');
+  }
   res.sendFile(path.join(__dirname, 'public/setup.html'));
 });
 app.get('/chat', ensureAuth, ensureNick, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/chat.html'));
 });
 
-// 10. Socket.IO & Session 共用
+// 10. Socket.IO 共用 Session
 io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
 
 io.on('connection', async socket => {
@@ -87,20 +93,18 @@ io.on('connection', async socket => {
   const user = await User.findById(sid);
   if (!user || !user.isNicknameSet) return socket.disconnect(true);
 
-  // 加入自己的房間
+  // 加入自己房間，通知朋友上下線
   socket.join(user._id.toString());
-  // 通知朋友上線
   user.friends.forEach(fid => {
     io.to(fid.toString()).emit('friend-online', { id: user._id.toString() });
   });
-
   socket.on('disconnect', () => {
     user.friends.forEach(fid => {
       io.to(fid.toString()).emit('friend-offline', { id: user._id.toString() });
     });
   });
 
-  // 載入歷史訊息
+  // 載入歷史
   socket.on('load history', async ({ id, type }) => {
     let raw;
     if (type === 'friend') {
@@ -129,7 +133,7 @@ io.on('connection', async socket => {
     socket.emit('chat history', { messages: msgs });
   });
 
-  // 私聊文字／圖片
+  // 私聊
   socket.on('private message', async ({ toUserId, message, imageUrl }) => {
     if (!user.friends.map(f => f.toString()).includes(toUserId)) return;
     const msg = await Message.create({
@@ -156,7 +160,7 @@ io.on('connection', async socket => {
     io.to(toUserId).to(user._id.toString()).emit('private message', payload);
   });
 
-  // 群組文字／圖片
+  // 群組
   socket.on('group message', async ({ to, message, imageUrl }) => {
     const msg = await Message.create({
       from:      user._id,
@@ -186,20 +190,17 @@ io.on('connection', async socket => {
   });
 });
 
-// 11. **錯誤處理**：將錯誤堆疊輸出到瀏覽器，方便調試
+// 11. 錯誤處理（維持簡潔）
 app.use((err, req, res, next) => {
-  console.error('💥 ERROR STACK:', err.stack);
-  res.status(500).send(`
-    <h1>500 – 伺服器錯誤</h1>
-    <pre style="white-space:pre-wrap;color:red;">${err.stack}</pre>
-  `);
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
 });
 
-// 12. 404 處理
+// 12. 404
 app.use((req, res) => {
   res.status(404).send('404 Not Found');
 });
 
-// 13. 啟動伺服器
+// 13. 啟動
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
