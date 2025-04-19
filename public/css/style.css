@@ -1,139 +1,357 @@
 /* ---------- Reset & Base ---------- */
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{width:100%;height:100%;font-family:'Segoe UI',sans-serif;
-  background:linear-gradient(135deg,#1f1c2c,#928dab);overflow:hidden;}
-button{cursor:pointer;border:none;background:none;outline:none;}
-img{display:block;user-select:none;}
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #1f1c2c, #928dab);
+  overflow: hidden;
+}
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+}
+img {
+  display: block;
+  user-select: none;
+}
 
 /* ---------- Containers ---------- */
-.app-container{display:flex;height:100vh;}
-.sidebar{width:280px;background:rgba(255,255,255,0.05);
-  backdrop-filter:blur(10px);border-right:1px solid rgba(255,255,255,0.2);
-  display:flex;flex-direction:column;transition:transform .3s ease;}
-.sidebar.closed{transform:translateX(-100%);}
-.chat-area{flex:1;display:flex;flex-direction:column;position:relative;}
+.app-container {
+  display: flex;
+  height: 100vh;
+}
+.sidebar {
+  width: 280px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+}
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
 
 /* ---------- Sidebar ---------- */
-.sidebar-header{padding:1rem;font-size:1.25rem;font-weight:bold;
-  color:#fff;border-bottom:1px solid rgba(255,255,255,0.2);}
-.friend-list{flex:1;overflow-y:auto;padding:.5rem 1rem;}
-.friend{display:flex;align-items:center;gap:.75rem;padding:.5rem;
-  border-radius:.75rem;margin-bottom:.5rem;
-  background:rgba(255,255,255,0.05);transition:background .3s,transform .2s;}
-.friend:hover{background:rgba(255,255,255,0.15);transform:translateX(5px);}
-.status-wrapper{position:relative;width:40px;height:40px;}
-.status-wrapper img{width:100%;height:100%;border-radius:50%;
-  border:2px solid #fff;}
-.status-dot{position:absolute;bottom:0;right:0;width:12px;height:12px;
-  border-radius:50%;border:2px solid #1f1c2c;background:#4caf50;
-  transition:background .3s;}
-.friend span{color:#fff;font-size:1rem;}
+.sidebar-header {
+  padding: 1rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+.friend-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 1rem;
+}
+.friend {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  transition: background 0.3s, transform 0.2s;
+}
+.friend:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateX(5px);
+}
+.status-wrapper {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+.status-wrapper img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+.status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #1f1c2c;
+  background: #4caf50;
+  transition: background 0.3s;
+}
+.friend span {
+  color: #fff;
+  font-size: 1rem;
+}
 
 /* ---------- Chat Header ---------- */
-.chat-header{padding:1rem 2rem;background:rgba(255,255,255,0.05);
-  backdrop-filter:blur(10px);display:flex;align-items:center;
-  justify-content:space-between;color:#fff;border-bottom:1px solid rgba(255,255,255,0.2);}
-#sidebarToggle{background:rgba(255,255,255,0.2);padding:.5rem;border-radius:50%;
-  color:#fff;transition:background .3s,transform .2s;}
-#sidebarToggle:hover{background:rgba(255,255,255,0.4);transform:scale(1.1);}
+.chat-header {
+  padding: 1rem 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+/* 隱藏漢堡按鈕 */
+#sidebarToggle {
+  display: none !important;
+}
 
 /* ---------- Messages ---------- */
-.chat-messages{flex:1;padding:2rem;overflow-y:auto;
-  background:rgba(0,0,0,0.2) url('/css/chat-bg.png') center/cover no-repeat;}
-.message{max-width:70%;padding:1rem 1.5rem;border-radius:1.5rem;
-  position:relative;animation:fadeIn .5s ease;background:rgba(255,255,255,0.1);}
-.message.self{margin-left:auto;background:linear-gradient(135deg,#81ecec,#00b894);
-  color:#1f1c2c;}
-.message .bubble-content{margin-top:.5rem;}
-img.content-image{max-width:200px;max-height:200px;border-radius:.5rem;
-  margin-top:.5rem;cursor:zoom-in;transition:transform .3s;}
-img.content-image:hover{transform:scale(1.05);}
-.time{display:block;text-align:right;font-size:.75rem;opacity:.7;}
-.read-indicator{position:absolute;bottom:.5rem;right:1rem;
-  font-size:.75rem;color:#55efc4;}
+.chat-messages {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.2) url('/css/chat-bg.png') center/cover no-repeat;
+}
+.message {
+  max-width: 70%;
+  padding: 1rem 1.5rem;
+  border-radius: 1.5rem;
+  position: relative;
+  animation: fadeIn 0.5s ease;
+  background: rgba(255, 255, 255, 0.1);
+  margin-bottom: 0.75rem;  /* 加強上下間距 */
+  color: #000;             /* 深色字，確保可讀 */
+}
+.message.self {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #a8f0e6, #5dd9a0); /* 柔和漸層 */
+  color: #000 !important;
+}
+.bubble-content {
+  margin-top: 0.5rem;
+  color: inherit;
+}
+img.content-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 0.5rem;
+  margin-top: 0.5rem;
+  cursor: zoom-in;
+  transition: transform 0.3s;
+}
+img.content-image:hover {
+  transform: scale(1.05);
+}
+.time {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+.read-indicator {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 1rem;
+  font-size: 0.75rem;
+  color: #55efc4;
+}
 
 /* ---------- Input ---------- */
-.chat-input{padding:1rem 2rem;background:rgba(255,255,255,0.05);
-  backdrop-filter:blur(10px);display:flex;align-items:center;}
-.chat-input .input-group{width:100%;}
-.chat-input input.form-control{background:rgba(255,255,255,0.2);
-  border:none;color:#fff;transition:background .3s;}
-.chat-input input.form-control:focus{background:rgba(255,255,255,0.4);}
-.chat-input .btn{margin-left:.5rem;background:linear-gradient(135deg,#ffeaa7,#fab1a0);
-  color:#1f1c2c;transition:transform .2s;}
-.chat-input .btn:hover{transform:scale(1.05);}
+.chat-input {
+  padding: 1rem 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+}
+.chat-input .input-group {
+  width: 100%;
+}
+.chat-input input.form-control {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  transition: background 0.3s;
+}
+.chat-input input.form-control:focus {
+  background: rgba(255, 255, 255, 0.4);
+}
+.chat-input .btn {
+  margin-left: 0.5rem;
+  background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+  color: #1f1c2c;
+  transition: transform 0.2s;
+}
+.chat-input .btn:hover {
+  transform: scale(1.05);
+}
 
 /* ---------- Top Controls ---------- */
-#top-controls{position:absolute;top:1rem;right:2rem;display:flex;gap:.75rem;}
-#top-controls button,#top-controls a{background:rgba(255,255,255,0.2);
-  padding:.5rem .75rem;border-radius:.5rem;color:#fff;
-  transition:background .3s,transform .2s;}
-#top-controls button:hover,#top-controls a:hover{background:rgba(255,255,255,0.4);
-  transform:scale(1.05);}
-
-/* ---------- Profile Modal ---------- */
-#profileModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:2000;
-  align-items:center;justify-content:center;}
-#profileModal.show{display:flex;}
-#profileContent{background:#2d3436;border-radius:1rem;padding:2rem;
-  width:360px;max-width:90%;color:#fff;position:relative;
-  transform:translateY(20px);animation:slideUp .4s cubic-bezier(.25,.8,.25,1) forwards;}
-@keyframes slideUp{from{opacity:0;transform:translateY(40px);}to{opacity:1;transform:translateY(0);} }
-#closeProfile{position:absolute;top:1rem;right:1rem;background:none;color:#fff;font-size:1.2rem;}
-#profileContent h4{text-align:center;margin-bottom:1.5rem;}
-#profileTabs{display:flex;gap:1rem;margin-bottom:1rem;}
-#profileTabs button{flex:1;padding:.5rem;border-radius:.5rem;color:#fff;
-  background:rgba(255,255,255,0.1);transition:background .3s;}
-#profileTabs button.active{background:linear-gradient(135deg,#74b9ff,#0984e3);}
-.profile-section{display:none;}
-.profile-section.active{display:block;}
-/* 個人資料顯示 */
-#infoSection img{width:120px;height:120px;border-radius:50%;margin:0 auto 1rem;display:block;}
-#infoSection .info-item{color:#fff;margin-bottom:.5rem;text-align:center;}
-/* 編輯 */
-#cropContainer{width:160px;height:160px;margin:0 auto 1rem;
-  border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,0.3);
-  background:rgba(255,255,255,0.05);position:relative;}
-#cropImage{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);
-  transition:transform .3s ease;cursor:grab;}
-#cropImage:active{cursor:grabbing;}
-.slider-container{display:flex;align-items:center;gap:.5rem;justify-content:center;margin-bottom:1rem;}
-.slider-container input[type="range"]{width:120px;}
-#avatarInputLabel{display:block;text-align:center;margin-bottom:1.5rem;}
-#avatarInputLabel input{display:none;}
-#avatarInputLabel span{padding:.5rem 1rem;background:linear-gradient(135deg,#fab1a0,#ffeaa7);
-  border-radius:.5rem;color:#2d3436;transition:transform .2s;}
-#avatarInputLabel span:hover{transform:scale(1.05);}
-#nicknameInput{width:100%;padding:.5rem;border:none;border-radius:.5rem;
-  margin-bottom:1.5rem;background:rgba(255,255,255,0.2);color:#fff;transition:background .3s;}
-#nicknameInput:focus{background:rgba(255,255,255,0.4);outline:none;}
-#saveProfileBtn{display:block;width:100%;padding:.5rem;background:linear-gradient(135deg,#ffeaa7,#fab1a0);
-  border-radius:.5rem;color:#2d3436;transition:transform .2s;}
-#saveProfileBtn:hover{transform:scale(1.05);}
-
-/* ---------- Tabs in Profile ---------- */
-.profile-section:not(.active){display:none;}
-
-/* ---------- Lightbox ---------- */
-#lightbox{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;
-  background:rgba(0,0,0,0.9);align-items:center;justify-content:center;z-index:3000;}
-#lightbox img{max-width:90%;max-height:90%;}
-#lightbox button{position:absolute;background:none;border:none;color:#fff;font-size:2rem;cursor:pointer;}
-#lb-close{top:20px;right:20px;}#lb-prev{left:20px;top:50%;transform:translateY(-50%);}#lb-next{right:20px;top:50%;transform:translateY(-50%);}
-
-/* ---------- Animations ---------- */
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
-/* 隱藏漢堡切換按鈕 */
-#sidebarToggle { display: none !important; }
-
-/* 調整頂部按鈕間距 */
 #top-controls {
   position: absolute;
   top: 1rem;
-  right: 1.5rem;
+  right: 1.5rem; /* 加大間距避免重疊 */
   display: flex;
   gap: 1rem;
   z-index: 100;
 }
+#top-controls button,
+#top-controls a {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  color: #fff;
+  transition: background 0.3s, transform 0.2s;
+}
+#top-controls button:hover,
+#top-controls a:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
 
+/* ---------- Profile Modal ---------- */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#profileModal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+}
+#profileModal.show {
+  display: flex;
+}
+#profileContent {
+  background: #2d3436;
+  border-radius: 1rem;
+  padding: 2rem;
+  width: 360px;
+  max-width: 90%;
+  color: #fff;
+  position: relative;
+  transform: translateY(20px);
+  animation: slideUp 0.4s cubic-bezier(.25,.8,.25,1) forwards;
+}
+#closeProfile {
+  position: absolute;
+  top: 1rem; right: 1rem;
+  background: none; color: #fff; font-size: 1.2rem;
+}
+#profileContent h4 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+#profileTabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+#profileTabs button {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background 0.3s;
+}
+#profileTabs button.active {
+  background: linear-gradient(135deg, #74b9ff, #0984e3);
+}
+.profile-section {
+  display: none;
+}
+.profile-section.active {
+  display: block;
+}
+#infoSection {
+  text-align: center;
+}
+#infoSection img {
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+}
+#infoSection .info-item {
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+#cropContainer {
+  width: 160px; height: 160px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  position: relative;
+}
+#cropImage {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  transition: transform 0.3s ease;
+  cursor: grab;
+}
+#cropImage:active {
+  cursor: grabbing;
+}
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+#avatarScale {
+  width: 120px;
+}
+#avatarInputLabel {
+  display: block;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+#avatarInputLabel input {
+  display: none;
+}
+#avatarInputLabel span {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #fab1a0, #ffeaa7);
+  border-radius: 0.5rem;
+  color: #2d3436;
+  transition: transform 0.2s;
+}
+#avatarInputLabel span:hover {
+  transform: scale(1.05);
+}
+#nicknameInput {
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+#nicknameInput:focus {
+  background: rgba(255, 255, 255, 0.4);
+  outline: none;
+}
+#saveProfileBtn {
+  display: block;
+  width: 100%;
+  padding: 0.
+}
