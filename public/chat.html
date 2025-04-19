@@ -2,8 +2,9 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8"/>
-  <title>精美聊天室</title>
+  <title>VerbaRealm</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
+  <link rel="icon" href="/images/verba-icon.png" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src="/socket.io/socket.io.js"></script>
@@ -12,7 +13,11 @@
   <div class="app-container">
     <!-- 側邊欄 -->
     <div class="sidebar" id="sidebar">
-      <h5 class="sidebar-header">聊天清單</h5>
+      <div class="sidebar-brand p-3 mb-2 d-flex align-items-center">
+        <img src="/images/verba-icon.png" width="32" height="32" class="me-2">
+        <span class="fs-4 text-white">VerbaRealm</span>
+      </div>
+      <h6 class="sidebar-subheader ps-3 text-white mb-2">好友列表</h6>
       <div class="friend-list" id="friend-list"></div>
       <div class="p-3">
         <button class="btn btn-success w-100 mb-2" onclick="toggleAddFriend()">新增好友</button>
@@ -102,7 +107,6 @@
     let myId, myNickname, myAvatarUrl;
     let chats = [], currentChat = null, lbImages = [], lbIndex = 0, contextTargetMsgId = null;
 
-    // 載入當前用戶資料與列表
     function loadMe(){
       fetch('/api/user/me')
         .then(r=>r.json())
@@ -117,7 +121,6 @@
         });
     }
 
-    // 好友邀請通知
     function toggleNotifMenu(){
       const m=document.getElementById('notifMenu');
       if(m.style.display==='block'){ m.style.display='none'; return; }
@@ -125,11 +128,8 @@
       fetch('/api/user/friend-requests').then(r=>r.json()).then(reqs=>{
         if(!reqs.length) m.innerHTML='<div>沒有好友邀請。</div>';
         else reqs.forEach(rq=>{
-          const d=document.createElement('div');
-          d.className='p-2 border-bottom';
-          d.innerHTML=`
-            <img src="${rq.avatarUrl}" width="30" height="30" class="rounded-circle">
-            ${rq.nickname}
+          const d=document.createElement('div'); d.className='p-2 border-bottom';
+          d.innerHTML=`<img src="${rq.avatarUrl}" width="30" height="30" class="rounded-circle"> ${rq.nickname}
             <button onclick="respondFriend('${rq._id}',true)" class="btn btn-sm btn-success ms-2">接受</button>
             <button onclick="respondFriend('${rq._id}',false)" class="btn btn-sm btn-danger ms-1">拒絕</button>`;
           m.appendChild(d);
@@ -142,7 +142,6 @@
         .then(_=>{ toggleNotifMenu(); loadChats(); });
     }
 
-    // 新增好友
     function toggleAddFriend(){
       const s=document.getElementById('addFriendSection');
       s.style.display = s.style.display==='block'?'none':'block';
@@ -154,7 +153,6 @@
         .then(r=>r.ok?alert('✅ 邀請已送出'):r.json().then(d=>alert('❌ '+d.message)));
     }
 
-    // 建立群組
     function toggleCreateGroup(){
       const s=document.getElementById('createGroupSection');
       if(s.style.display!=='block'){ populateGroupMembers(); s.style.display='block'; }
@@ -162,8 +160,7 @@
     }
     function populateGroupMembers(){
       fetch('/api/user/me').then(r=>r.json()).then(u=>{
-        const cbx=document.getElementById('groupMembersCheckboxes');
-        cbx.innerHTML='';
+        const cbx=document.getElementById('groupMembersCheckboxes'); cbx.innerHTML='';
         Object.entries(u.friendsMap).forEach(([id,info])=>{
           cbx.insertAdjacentHTML('beforeend',`<div><input type="checkbox" id="gm_${id}" value="${id}"><label for="gm_${id}">${info.nickname}</label></div>`);
         });
@@ -178,7 +175,6 @@
         .then(_=>{ loadChats(); toggleCreateGroup(); });
     }
 
-    // 載入所有聊天（好友＋群組）
     function loadChats(){
       chats=[]; lbImages=[];
       Promise.all([ fetch('/api/user/me').then(r=>r.json()), fetch('/api/group/list').then(r=>r.json()) ])
@@ -194,42 +190,30 @@
       const uniq={};
       chats = chats.filter(c=>{
         const k=c.id+'|'+c.type;
-        if(uniq[k]) return false;
-        uniq[k]=1; return true;
+        if(uniq[k]) return false; uniq[k]=1; return true;
       });
-      const list=document.getElementById('friend-list');
-      list.innerHTML='';
+      const list=document.getElementById('friend-list'); list.innerHTML='';
       chats.forEach(c=>{
-        const el=document.createElement('div');
-        el.className='friend';
-        el.dataset.id=c.id+'|'+c.type;
+        const el=document.createElement('div'); el.className='friend'; el.dataset.id=c.id+'|'+c.type;
         const dot = c.type==='friend'
           ? `<span class="status-dot" style="background:${c.isOnline?'#4caf50':'#888'}"></span>`
           : '';
-        el.innerHTML=`
-          <div class="status-wrapper">
-            <img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">${dot}
-          </div>
-          <span>${c.name}</span>`;
+        el.innerHTML=`<div class="status-wrapper"><img src="${c.avatarUrl}" width="36" height="36" class="rounded-circle">${dot}</div><span>${c.name}</span>`;
         el.onclick=()=>openChat(c.id,c.type,c.name);
         list.appendChild(el);
       });
     }
 
-    // 開啟聊天
     function openChat(id,type,name){
       currentChat={id,type};
       document.getElementById('chat-with').textContent = type==='friend'?`與 ${name} 聊天中`:name;
-      document.getElementById('message-log').innerHTML='';
-      document.getElementById('chat-form').classList.remove('d-none');
+      document.getElementById('message-log').innerHTML=''; document.getElementById('chat-form').classList.remove('d-none');
       socket.emit('load history',{id,type});
     }
 
-    // 發送訊息
     document.getElementById('chat-form').addEventListener('submit',e=>{
       e.preventDefault();
-      const txt=document.getElementById('message-input').value.trim();
-      if(!txt||!currentChat) return;
+      const txt=document.getElementById('message-input').value.trim(); if(!txt||!currentChat) return;
       const now=new Date();
       if(currentChat.type==='friend'){
         socket.emit('private message',{toUserId:currentChat.id,message:txt});
@@ -241,51 +225,31 @@
       document.getElementById('message-input').value='';
     });
 
-    // 圖片上傳
     function triggerImageUpload(){ document.getElementById('image-input').click(); }
     function uploadImage(e){
-      const f=e.target.files[0];
-      if(!f||!currentChat) return;
-      const form=new FormData();
-      form.append('image',f);
-      form.append('to',currentChat.id);
-      form.append('type',currentChat.type);
-      fetch('/api/upload-image',{method:'POST',body:form})
-        .then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
+      const f=e.target.files[0]; if(!f||!currentChat) return;
+      const form=new FormData(); form.append('image',f); form.append('to',currentChat.id); form.append('type',currentChat.type);
+      fetch('/api/upload-image',{method:'POST',body:form}).then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
     }
 
-    // 顯示訊息
     function appendMessage(msg,isSelf){
       const box=document.getElementById('message-log');
-      const div=document.createElement('div');
-      div.className='message'+(isSelf?' self':'');
+      const div=document.createElement('div'); div.className='message'+(isSelf?' self':'');
       if(msg.id) div.dataset.id=msg.id;
       let content='';
       if(msg.recalled) content='<em style="color:gray;">此則訊息已被收回</em>';
       else if(msg.imageUrl) content=`<img src="${msg.imageUrl}" class="content-image">`;
       else content=msg.message;
-      div.innerHTML=`
-        <div style="display:flex;gap:.5rem;">
-          <img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
-          <div>
-            <strong>${msg.nickname}</strong>
-            <div class="bubble-content">${content}</div>
-            <span class="time">${new Date(msg.timestamp).toLocaleTimeString('zh-TW')}</span>
-            ${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}
-          </div>
-        </div>`;
+      div.innerHTML=`<div style="display:flex;gap:.5rem;"><img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle"><div><strong>${msg.nickname}</strong><div class="bubble-content">${content}</div><span class="time">${new Date(msg.timestamp).toLocaleTimeString('zh-TW')}</span>${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}</div></div>`;
       if(isSelf&&!msg.recalled&&msg.id){
         div.addEventListener('contextmenu',e=>{
           e.preventDefault();
           contextTargetMsgId=msg.id;
           const mnu=document.getElementById('msg-context-menu');
-          mnu.style.top=e.pageY+'px';
-          mnu.style.left=e.pageX+'px';
-          mnu.style.display='block';
+          mnu.style.top=e.pageY+'px'; mnu.style.left=e.pageX+'px'; mnu.style.display='block';
         });
       }
-      box.appendChild(div);
-      box.scrollTop=box.scrollHeight;
+      box.appendChild(div); box.scrollTop=box.scrollHeight;
       if(msg.imageUrl&&!msg.recalled){
         lbImages.push(msg.imageUrl);
         setTimeout(()=>{
@@ -310,7 +274,6 @@
       contextTargetMsgId=null;
     }
 
-    // Lightbox
     function openLightbox(i){
       lbIndex=i;
       document.getElementById('lb-img').src=lbImages[i];
@@ -329,7 +292,6 @@
       if(e.target.id==='lightbox') document.getElementById('lightbox').style.display='none';
     };
 
-    // Profile Modal
     function switchTab(tab){
       document.getElementById('tabInfo').classList.toggle('active',tab==='info');
       document.getElementById('tabEdit').classList.toggle('active',tab==='edit');
@@ -339,7 +301,6 @@
     document.getElementById('profileBtn').onclick=()=>document.getElementById('profileModal').style.display='flex';
     document.getElementById('closeProfile').onclick=()=>document.getElementById('profileModal').style.display='none';
 
-    // Avatar Crop & Upload
     document.getElementById('avatarScale').addEventListener('input',e=>{
       document.getElementById('cropImage').style.transform = `translate(-50%,-50%) scale(${e.target.value})`;
     });
@@ -382,7 +343,6 @@
       }
     }
 
-    // Socket 事件接收
     socket.on('connect',()=>{
       socket.on('friend-online',e=>{
         const d=document.querySelector(`[data-id="${e.id}|friend"] .status-dot`);
