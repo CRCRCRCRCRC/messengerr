@@ -4,203 +4,219 @@ const session = require('express-session');
 const passport = require('passport');
 const mongoose = require('mongoose');
 const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+const { Server } = require("socket.io");
+const multer = require('multer');
 const fs = require('fs');
+const path = require('path');
 
-const User          = require('./models/User');
-const Message       = require('./models/Message');
-const Group         = require('./models/Group');
-const FriendRequest = require('./models/FriendRequest'); // 確保已建立此模型
+const User = require('./models/User');
+const Message = require('./models/Message');
+const Group = require('./models/Group');
 
-// 1. 連線 MongoDB
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
   .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-const app    = express();
+const app = express();
 const server = http.createServer(app);
-const io     = new Server(server);
-app.set('io', io);
+const io = new Server(server);
 
-// 2. Express 中間件
+// Session middleware
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 1000 * 60 * 60 * 24
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// 3. 靜態資源
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/avatars', express.static(path.join(__dirname, 'public/avatars')));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
-
-// 4. 建立資料夾
-const avatarsDir = path.join(__dirname, 'public/avatars');
-const uploadsDir = path.join(__dirname, 'public/uploads');
-if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-// 5. Session 設定
-const sessionMiddleware = session({
-  secret:            process.env.SESSION_SECRET,
-  resave:            false,
-  saveUninitialized: false,
-  cookie: { secure: false, httpOnly: true, sameSite: 'lax', maxAge: 24*3600*1000 }
-});
 app.use(sessionMiddleware);
 
-// 6. Passport
 app.use(passport.initialize());
 app.use(passport.session());
 require('./config/passport-setup');
 
-// 7. 路由
+// Routes
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/group', require('./routes/groupRoutes'));
 app.use('/api/upload-image', require('./routes/uploadRoutes'));
-app.use('/api/message', require('./routes/messageRoutes'));
 
-// 8. 驗證中間件
-const ensureAuth = (req, res, next) =>
-  req.isAuthenticated() ? next() : res.redirect('/');
-const ensureNick = (req, res, next) =>
-  req.user.isNicknameSet ? next() : res.redirect('/setup');
+// Authentication guards
+const ensureAuthenticated = (req, res, next) => {
+  if (req.isAuthenticated()) return next();
+  res.redirect('/');
+};
+const ensureNicknameSet = (req, res, next) => {
+  if (req.user && req.user.isNicknameSet) return next();
+  res.redirect('/setup');
+};
 
-// 9. HTML 路由
-app.get('/', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.sendFile(path.join(__dirname, 'public/index.html'));
+// Avatar upload for setup
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, 'public/avatars');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, req.user._id + ext);
   }
-  return req.user.isNicknameSet
-    ? res.redirect('/chat')
-    : res.redirect('/setup');
 });
-app.get('/setup', ensureAuth, (req, res) => {
-  if (req.user.isNicknameSet) {
+const upload = multer({ storage: avatarStorage });
+
+// Routes for pages
+app.get('/', async (req, res) => {
+  if (req.isAuthenticated()) {
+    const u = await User.findById(req.user._id);
+    if (!u) return res.redirect('/');
+    if (!u.isNicknameSet) return res.redirect('/setup');
     return res.redirect('/chat');
   }
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+app.get('/setup', ensureAuthenticated, (req, res) => {
+  if (req.user.isNicknameSet) return res.redirect('/chat');
   res.sendFile(path.join(__dirname, 'public/setup.html'));
 });
-app.get('/chat', ensureAuth, ensureNick, (req, res) => {
+
+app.post('/api/user/setup', ensureAuthenticated, upload.single('avatar'), async (req, res) => {
+  const { nickname } = req.body;
+  if (!nickname || !req.file) return res.status(400).send('缺少暱稱或頭像檔');
+  req.user.nickname = nickname.trim();
+  req.user.avatarUrl = `/avatars/${req.file.filename}`;
+  req.user.isNicknameSet = true;
+  await req.user.save();
+  res.sendStatus(200);
+});
+
+app.get('/chat', ensureAuthenticated, ensureNicknameSet, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/chat.html'));
 });
 
-// 10. Socket.IO 共用 Session
+// Share session with Socket.IO
 io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
 
 io.on('connection', async socket => {
-  const sid = socket.request.session.passport?.user;
-  if (!sid) return socket.disconnect(true);
-  const user = await User.findById(sid);
+  const session = socket.request.session;
+  if (!session?.passport?.user) return socket.disconnect(true);
+
+  const user = await User.findById(session.passport.user);
   if (!user || !user.isNicknameSet) return socket.disconnect(true);
 
-  // 加入自己房間，通知朋友上下線
-  socket.join(user._id.toString());
-  user.friends.forEach(fid => {
-    io.to(fid.toString()).emit('friend-online', { id: user._id.toString() });
-  });
-  socket.on('disconnect', () => {
-    user.friends.forEach(fid => {
-      io.to(fid.toString()).emit('friend-offline', { id: user._id.toString() });
-    });
-  });
+  socket.userData = {
+    id: user._id.toString(),
+    nickname: user.nickname,
+    avatarUrl: user.avatarUrl,
+    friends: user.friends.map(f => f.toString())
+  };
 
-  // 載入歷史
+  // Join personal room
+  socket.join(socket.userData.id);
+
+  // Broadcast online
+  socket.broadcast.emit('friend-online', { id: socket.userData.id });
+
+  // Load chat history
   socket.on('load history', async ({ id, type }) => {
-    let raw;
+    let msgs;
     if (type === 'friend') {
-      raw = await Message.find({
+      msgs = await Message.find({
         $or: [
-          { from: user._id, to: id },
-          { from: id, to: user._id }
+          { from: socket.userData.id, to: id },
+          { from: id, to: socket.userData.id }
         ]
-      }).sort('timestamp').populate('from', 'avatarUrl nickname').lean();
+      }).sort({ timestamp: 1 }).lean();
     } else {
-      raw = await Message.find({ group: id }).sort('timestamp').populate('from', 'avatarUrl nickname').lean();
+      msgs = await Message.find({ group: id }).sort({ timestamp: 1 }).lean();
     }
-    const msgs = raw.map(m => ({
-      id:        m._id.toString(),
-      from:      m.from._id.toString(),
-      to:        m.to?.toString(),
-      groupId:   m.group?.toString(),
-      message:   m.message,
-      imageUrl:  m.imageUrl || null,
-      timestamp: m.timestamp,
-      read:      m.read,
-      recalled:  m.recalled,
-      avatarUrl: m.from.avatarUrl,
-      nickname:  m.from.nickname
-    }));
     socket.emit('chat history', { messages: msgs });
   });
 
-  // 私聊
-  socket.on('private message', async ({ toUserId, message, imageUrl }) => {
-    if (!user.friends.map(f => f.toString()).includes(toUserId)) return;
+  // Private message
+  socket.on('private message', async ({ toUserId, message }) => {
+    if (!socket.userData.friends.includes(toUserId)) return;
     const msg = await Message.create({
-      from:      user._id,
-      to:        toUserId,
-      message:   message || null,
-      imageUrl:  imageUrl || null,
+      from: socket.userData.id,
+      to: toUserId,
+      message,
       timestamp: new Date(),
-      read:      false,
-      recalled:  false
+      read: false
     });
     const payload = {
-      id:        msg._id.toString(),
-      from:      msg.from.toString(),
-      to:        msg.to.toString(),
-      message:   msg.message,
-      imageUrl:  msg.imageUrl,
-      timestamp: msg.timestamp,
-      read:      msg.read,
-      recalled:  msg.recalled,
-      avatarUrl: user.avatarUrl,
-      nickname:  user.nickname
+      ...msg.toObject(),
+      avatarUrl: socket.userData.avatarUrl,
+      nickname: socket.userData.nickname
     };
-    io.to(toUserId).to(user._id.toString()).emit('private message', payload);
+    io.to(toUserId).to(socket.userData.id).emit('private message', payload);
   });
 
-  // 群組
-  socket.on('group message', async ({ to, message, imageUrl }) => {
+  // Group message
+  socket.on('group message', async ({ to, message }) => {
     const msg = await Message.create({
-      from:      user._id,
-      group:     to,
-      message:   message || null,
-      imageUrl:  imageUrl || null,
+      from: socket.userData.id,
+      group: to,
+      message,
       timestamp: new Date(),
-      read:      false,
-      recalled:  false
+      read: false
     });
+    const members = (await Group.findById(to)).members.map(m => m.toString());
     const payload = {
-      id:        msg._id.toString(),
-      from:      msg.from.toString(),
-      groupId:   msg.group.toString(),
-      message:   msg.message,
-      imageUrl:  msg.imageUrl,
-      timestamp: msg.timestamp,
-      read:      msg.read,
-      recalled:  msg.recalled,
-      avatarUrl: user.avatarUrl,
-      nickname:  user.nickname
+      ...msg.toObject(),
+      avatarUrl: socket.userData.avatarUrl,
+      nickname: socket.userData.nickname
     };
-    const grp = await Group.findById(to);
-    grp.members.forEach(mid => {
-      io.to(mid.toString()).emit('group message', payload);
+    members.forEach(mid => {
+      io.to(mid).emit('group message', payload);
     });
+  });
+
+  // Recall message
+  socket.on('message recall', async ({ messageId }) => {
+    await Message.findByIdAndUpdate(messageId, { recalled: true });
+    io.emit('message recalled', { messageId });
+  });
+
+  // WebRTC Signaling: call-user, make-answer, ice-candidate
+  socket.on('call-user', ({ to, offer }) => {
+    io.to(to).emit('call-made', { from: socket.id, offer });
+  });
+  socket.on('make-answer', ({ to, answer }) => {
+    io.to(to).emit('answer-made', { from: socket.id, answer });
+  });
+  socket.on('ice-candidate', ({ to, candidate }) => {
+    io.to(to).emit('ice-candidate', { from: socket.id, candidate });
+  });
+
+  // On disconnect
+  socket.on('disconnect', () => {
+    socket.broadcast.emit('friend-offline', { id: socket.userData.id });
   });
 });
 
-// 11. 錯誤處理（維持簡潔）
+// 404 and error handlers
+app.use((req, res) => res.status(404).send("404 Not Found"));
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error(err);
   res.status(500).send('Something broke!');
 });
 
-// 12. 404
-app.use((req, res) => {
-  res.status(404).send('404 Not Found');
-});
-
-// 13. 啟動
+// Start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
