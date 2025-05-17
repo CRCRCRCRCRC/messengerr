@@ -1,4 +1,6 @@
 require('dotenv').config();
+const multer = require('multer');
+const fs = require('fs');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -54,6 +56,20 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/avatars', express.static(path.join(__dirname, 'public/avatars')));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use(sessionMiddleware);
+// 確保 public/avatars 資料夾存在
+const avatarsDir = path.join(__dirname, 'public/avatars');
+if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
+
+// multer 設定：上傳使用者大頭貼
+const avatarStorage = multer.diskStorage({
+  destination: (_, file, cb) => cb(null, avatarsDir),
+  filename:   (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, req.user._id + ext);
+  }
+});
+const upload = multer({ storage: avatarStorage });
+
 
 // Passport
 app.use(passport.initialize());
