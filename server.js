@@ -8,7 +8,6 @@ const mongoose = require('mongoose');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const fs = require('fs');
 
 const User = require('./models/User');
 const Message = require('./models/Message');
