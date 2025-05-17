@@ -13,6 +13,12 @@ const User = require('./models/User');
 const Message = require('./models/Message');
 const Group = require('./models/Group');
 
+const app = express();
+
+// １️⃣ 信任 proxy（如在 Render / Heroku 背後運行）
+app.set('trust proxy', 1);
+
+// 連接 MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -20,23 +26,24 @@ mongoose.connect(process.env.MONGODB_URI, {
   .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-const app = express();
+// 建立 HTTP server 與 Socket.IO
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Session middleware
+// 設定 Session 中介軟體
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production',               // 上線時使用 secure
     httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 上線時跨站點送出 cookie
+    maxAge: 1000 * 60 * 60 * 24                                 // 1 天
   }
 });
 
+// Express 中介軟體
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -48,13 +55,13 @@ app.use(passport.initialize());
 app.use(passport.session());
 require('./config/passport-setup');
 
-// Routes
+// 路由
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/group', require('./routes/groupRoutes'));
 app.use('/api/upload-image', require('./routes/uploadRoutes'));
 
-// Authentication guards
+// 驗證函式
 const ensureAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) return next();
   res.redirect('/');
@@ -64,7 +71,7 @@ const ensureNicknameSet = (req, res, next) => {
   res.redirect('/setup');
 };
 
-// Avatar upload for setup
+// Avatar 上傳 (Setup 流程)
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, 'public/avatars');
@@ -78,7 +85,7 @@ const avatarStorage = multer.diskStorage({
 });
 const upload = multer({ storage: avatarStorage });
 
-// Routes for pages
+// 頁面路由
 app.get('/', async (req, res) => {
   if (req.isAuthenticated()) {
     const u = await User.findById(req.user._id);
@@ -108,7 +115,7 @@ app.get('/chat', ensureAuthenticated, ensureNicknameSet, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/chat.html'));
 });
 
-// Share session with Socket.IO
+// 讓 Socket.IO 使用同一個 session
 io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
 
 io.on('connection', async socket => {
@@ -125,13 +132,13 @@ io.on('connection', async socket => {
     friends: user.friends.map(f => f.toString())
   };
 
-  // Join personal room
+  // 加入自己的房間
   socket.join(socket.userData.id);
 
-  // Broadcast online
+  // 推播自己上線
   socket.broadcast.emit('friend-online', { id: socket.userData.id });
 
-  // Load chat history
+  // 載入歷史訊息
   socket.on('load history', async ({ id, type }) => {
     let msgs;
     if (type === 'friend') {
@@ -147,7 +154,7 @@ io.on('connection', async socket => {
     socket.emit('chat history', { messages: msgs });
   });
 
-  // Private message
+  // 私訊
   socket.on('private message', async ({ toUserId, message }) => {
     if (!socket.userData.friends.includes(toUserId)) return;
     const msg = await Message.create({
@@ -165,7 +172,7 @@ io.on('connection', async socket => {
     io.to(toUserId).to(socket.userData.id).emit('private message', payload);
   });
 
-  // Group message
+  // 群組訊息
   socket.on('group message', async ({ to, message }) => {
     const msg = await Message.create({
       from: socket.userData.id,
@@ -180,18 +187,16 @@ io.on('connection', async socket => {
       avatarUrl: socket.userData.avatarUrl,
       nickname: socket.userData.nickname
     };
-    members.forEach(mid => {
-      io.to(mid).emit('group message', payload);
-    });
+    members.forEach(mid => io.to(mid).emit('group message', payload));
   });
 
-  // Recall message
+  // 收回訊息
   socket.on('message recall', async ({ messageId }) => {
     await Message.findByIdAndUpdate(messageId, { recalled: true });
     io.emit('message recalled', { messageId });
   });
 
-  // WebRTC Signaling: call-user, make-answer, ice-candidate
+  // WebRTC Signaling：語音通話
   socket.on('call-user', ({ to, offer }) => {
     io.to(to).emit('call-made', { from: socket.id, offer });
   });
@@ -202,20 +207,20 @@ io.on('connection', async socket => {
     io.to(to).emit('ice-candidate', { from: socket.id, candidate });
   });
 
-  // On disconnect
+  // 離線推播
   socket.on('disconnect', () => {
     socket.broadcast.emit('friend-offline', { id: socket.userData.id });
   });
 });
 
-// 404 and error handlers
+// 404 & 錯誤處理
 app.use((req, res) => res.status(404).send("404 Not Found"));
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send('Something broke!');
 });
 
-// Start server
+// 啟動伺服器
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
