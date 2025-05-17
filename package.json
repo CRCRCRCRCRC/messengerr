@@ -1,4 +1,12 @@
 {
+  "name": "messengerr",
+  "version": "1.0.0",
+  "description": "VerbaRealm 聊天應用",
+  "main": "server.js",
+  "scripts": {
+    "build": "npm install",
+    "start": "node server.js"
+  },
   "dependencies": {
     "connect-mongo": "^5.1.0",
     "dotenv": "^16.5.0",
