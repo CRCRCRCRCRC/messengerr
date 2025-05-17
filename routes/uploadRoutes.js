@@ -1,79 +1,85 @@
-const router = require('express').Router();
+// routes/uploadRoutes.js
+const express = require('express');
 const multer = require('multer');
-const path  = require('path');
-const fs    = require('fs');
+const path = require('path');
 const Message = require('../models/Message');
-const Group   = require('../models/Group');
+const Group = require('../models/Group');
 
-// 驗證
-function ensureAuth(req, res, next) {
-  if (req.isAuthenticated()) return next();
-  res.status(401).json({ message: 'Unauthorized' });
-}
-router.use(ensureAuth);
+module.exports = function(io) {
+  const router = express.Router();
 
-// 確保 uploads 資料夾
-const UPLOAD_DIR = path.join(__dirname, '../public/uploads');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+  // 把上傳的圖片放 public/uploads
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = path.join(__dirname, '../public/uploads');
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      // 用 timestamp+原名 保證不衝突
+      const name = `${Date.now()}_${file.originalname}`;
+      cb(null, name);
+    }
+  });
+  const upload = multer({ storage });
 
-// multer 設定
-const storage = multer.diskStorage({
-  destination: (_, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, Date.now() + ext);
-  }
-});
-const upload = multer({ storage });
+  router.post('/', upload.single('image'), async (req, res) => {
+    try {
+      // body: { to, type }
+      const to = req.body.to;
+      const type = req.body.type; // 'friend' 或 'group'
+      const imageUrl = `/uploads/${req.file.filename}`;
 
-// POST /api/upload-image
-router.post('/', upload.single('image'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+      let msg;
+      if (type === 'friend') {
+        // 私訊圖片
+        msg = await Message.create({
+          from: req.user._id,
+          to: to,
+          imageUrl: imageUrl,
+          timestamp: new Date(),
+          read: false
+        });
+        // 撈出 sender 資訊
+        const sender = await req.user.populate('nickname avatarUrl').execPopulate();
+        // 推播給對方 & 自己
+        const payload = {
+          ...msg.toObject(),
+          nickname: sender.nickname,
+          avatarUrl: sender.avatarUrl
+        };
+        io.to(to).to(req.user._id.toString()).emit('private message', payload);
+      } else {
+        // 群組圖片
+        msg = await Message.create({
+          from: req.user._id,
+          group: to,
+          imageUrl: imageUrl,
+          timestamp: new Date(),
+          read: false
+        });
+        const sender = await req.user.populate('nickname avatarUrl').execPopulate();
+        const payload = {
+          ...msg.toObject(),
+          nickname: sender.nickname,
+          avatarUrl: sender.avatarUrl
+        };
+        const group = await Group.findById(to).select('members');
+        group.members.forEach(memberId => {
+          io.to(memberId.toString()).emit('group message', payload);
+        });
+      }
 
-  const { to, type } = req.body;
-  const imageUrl = '/uploads/' + req.file.filename;
+      // 回給前端 appendMessage() 用
+      res.json({
+        ...msg.toObject(),
+        nickname: req.user.nickname,
+        avatarUrl: req.user.avatarUrl
+      });
+    } catch (err) {
+      console.error('❌ 圖片上傳或存 DB 發生錯誤：', err);
+      res.status(500).json({ message: '圖片上傳失敗' });
+    }
+  });
 
-  const data = {
-    from:      req.user._id,
-    message:   null,
-    imageUrl,
-    timestamp: new Date(),
-    read:      false,
-    recalled:  false
-  };
-  if (type === 'friend') data.to = to;
-  else data.group = to;
-
-  const msg = await Message.create(data);
-
-  const payload = {
-    id:        msg._id.toString(),
-    from:      msg.from.toString(),
-    to:        msg.to?.toString(),
-    groupId:   msg.group?.toString(),
-    message:   null,
-    imageUrl:  msg.imageUrl,
-    timestamp: msg.timestamp,
-    read:      msg.read,
-    recalled:  msg.recalled,
-    avatarUrl: req.user.avatarUrl,
-    nickname:  req.user.nickname
-  };
-
-  // 推送
-  const io = req.app.get('io');
-  if (type === 'friend') {
-    io.to(to).to(req.user._id.toString()).emit('private message', payload);
-  } else {
-    const grp = await Group.findById(to);
-    grp.members.forEach(mid => {
-      io.to(mid.toString()).emit('group message', payload);
-    });
-  }
-
-  res.json(payload);
-});
-
-module.exports = router;
+  return router;
+};
