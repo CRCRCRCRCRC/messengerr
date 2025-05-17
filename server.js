@@ -154,6 +154,13 @@ io.on('connection', async socket=>{
     socket.emit('chat history',{messages: msgs});
   });
 
+  // 當後端推播 new-friend 時
+socket.on('new-friend', f => {
+  if(!chats.find(c=>c.id===f.id && c.type==='friend')) {
+    chats.push({ id:f.id, type:'friend', name:f.nickname, avatarUrl:f.avatarUrl, isOnline:false });
+    renderChatList();
+  }
+});
   // 私訊
   socket.on('private message', async ({toUserId,message})=>{
     if(!socket.userData.friends.includes(toUserId)) return;
