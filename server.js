@@ -106,7 +106,7 @@ app.get('/call/:roomId', ensureAuth, ensureNickname, (req,res)=>{
 
 // 引入路由
 app.use('/auth', require('./routes/authRoutes'));
-app.use('/api/user', require('./routes/userRoutes'));
+app.use('/api/user', require('./routes/userRoutes')(io));
 app.use('/api/group', require('./routes/groupRoutes'));
 // 圖片上傳要拿 io
 app.use('/api/upload-image', require('./routes/uploadRoutes')(io));
