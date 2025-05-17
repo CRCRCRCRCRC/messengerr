@@ -18,21 +18,26 @@ const app = express();
 app.set('trust proxy', 1);
 
 // MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(()=>console.log('✅ MongoDB Connected'))
-.catch(err=>console.error('❌ MongoDB Error:', err));
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ MongoDB Connected'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
 
 const server = http.createServer(app);
 const io = new Server(server);
 
 // Session
+const MongoStore = require('connect-mongo');
+
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    collectionName: 'sessions',
+    ttl: 60 * 60 * 24  // 1 天
+  }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
@@ -40,6 +45,7 @@ const sessionMiddleware = session({
     maxAge: 1000 * 60 * 60 * 24
   }
 });
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
