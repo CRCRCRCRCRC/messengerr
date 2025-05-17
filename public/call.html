@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>VerbaRealm—Call</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>body{margin:0;display:flex;flex-direction:column;height:100vh;}
+    #remoteAudio,#localAudio{display:none;}
+    #hangup{position:absolute;top:1rem;right:1rem;}
+  </style>
+</head>
+<body>
+  <button id="hangup">📞 掛斷</button>
+  <audio id="localAudio" autoplay muted></audio>
+  <audio id="remoteAudio" autoplay></audio>
+
+<script>
+  const socket = io();
+  const roomId = location.pathname.split('/').pop();
+  let pc = null, localStream = null;
+
+  // Join call room
+  socket.emit('join-call',{ roomId });
+
+  // Handle hangup
+  document.getElementById('hangup').onclick = () => {
+    if(pc){ pc.close(); pc = null; }
+    window.close();
+  };
+
+  // When both sides join,第一個加入後會收到對方入室事件
+  socket.on('offer', async ({ from, offer }) => {
+    // 被叫方／第二個加入：建立 Peer，接 offer，回 answer
+    await startPeer();
+    await pc.setRemoteDescription(offer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit('answer',{ roomId, answer });
+  });
+
+  // 呼叫者收到 answer
+  socket.on('answer', async ({ answer }) => {
+    await pc.setRemoteDescription(answer);
+  });
+
+  // ICE candidate 交換
+  socket.on('ice-candidate', async ({ candidate }) => {
+    try { await pc.addIceCandidate(candidate); }
+    catch(e){ console.error(e); }
+  });
+
+  // 都進房後，如果我是呼叫者，就先發 offer
+  socket.on('connect', async () => {
+    // delay 一下等對方也 join
+    setTimeout(async ()=> {
+      // 建 Peer 並拿 mic
+      await startPeer();
+      // only for the one who先 click call (呼叫者)
+      pc.onnegotiationneeded = async ()=>{
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('offer',{ roomId, offer });
+      };
+    }, 500);
+  });
+
+  // 公共的：建立 RTCPeerConnection and 本地 stream
+  async function startPeer(){
+    if(pc) return;
+    pc = new RTCPeerConnection({ 
+      iceServers:[{urls:'stun:stun.l.google.com:19302'}] 
+    });
+    pc.onicecandidate = e => {
+      if(e.candidate){
+        socket.emit('ice-candidate',{ roomId, candidate:e.candidate });
+      }
+    };
+    pc.ontrack = e =>{
+      document.getElementById('remoteAudio').srcObject = e.streams[0];
+    };
+    localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+    document.getElementById('localAudio').srcObject = localStream;
+  }
+</script>
+</body>
+</html>
