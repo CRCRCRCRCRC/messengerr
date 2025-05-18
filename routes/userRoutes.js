@@ -29,6 +29,41 @@ module.exports = function(io) {
   });
   const upload = multer({ storage: avatarStorage });
 
+  // 新增：處理首次設定暱稱與頭像
+  router.post('/setup', upload.single('avatar'), async (req, res) => {
+    const { nickname } = req.body;
+    if (!nickname || nickname.trim().length < 2 || nickname.trim().length > 20) {
+      return res.status(400).json({ message: '暱稱長度必須介於 2 到 20 個字元之間。' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: '請上傳頭像。' });
+    }
+
+    try {
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return res.status(404).json({ message: '使用者不存在。' });
+      }
+      if (user.isNicknameSet) {
+        return res.status(400).json({ message: '已經完成過初始設定。' });
+      }
+
+      user.nickname = nickname.trim();
+      user.avatarUrl = '/avatars/' + req.file.filename; // multer 儲存的檔案路徑
+      user.isNicknameSet = true;
+      await user.save();
+
+      res.json({ 
+        message: '設定成功！',
+        nickname: user.nickname,
+        avatarUrl: user.avatarUrl
+      });
+    } catch (err) {
+      console.error('[/api/user/setup] Error:', err);
+      res.status(500).json({ message: '伺服器錯誤，設定失敗。' });
+    }
+  });
+
   // 設定暱稱 (首次註冊)
   router.post('/set-nickname', async (req, res) => {
     const { nickname } = req.body;
