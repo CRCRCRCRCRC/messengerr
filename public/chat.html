@@ -215,21 +215,73 @@
         }
       });
 
-      loadMe();
+      fetchInitialData();
     });
 
     // ========== UI & 功能 ==========
-    function loadMe(){
-      fetch('/api/user/me').then(r=>r.json()).then(u=>{
-        myId=u.id; myNickname=u.nickname; myAvatarUrl=u.avatarUrl;
-        document.getElementById('infoAvatar').src=u.avatarUrl;
-        document.getElementById('infoNickname').textContent=u.nickname;
-        document.getElementById('infoUserCode').textContent=u.userCode;
-        document.getElementById('cropImage').src=u.avatarUrl;
-        document.getElementById('nicknameInput').value=u.nickname;
-        loadChats();
-      });
+    function fetchInitialData() {
+      fetch('/api/user/initial-data')
+        .then(res => {
+          if (!res.ok) {
+            if (res.status === 403) { // 需要設定暱稱
+              return res.json().then(errData => {
+                if (errData.redirectTo) window.location.href = errData.redirectTo;
+                else throw new Error(errData.message || '需要初始設定');
+              });
+            } else if (res.status === 401) { // 未登入
+                window.location.href = '/';
+                throw new Error('未授權');
+            }
+            throw new Error(`獲取初始資料失敗: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          // 設定使用者自己的資訊
+          myId = data.user.id;
+          myNickname = data.user.nickname;
+          myAvatarUrl = data.user.avatarUrl;
+          document.getElementById('infoAvatar').src = myAvatarUrl;
+          document.getElementById('infoNickname').textContent = myNickname;
+          document.getElementById('infoUserCode').textContent = data.user.userCode;
+          document.getElementById('cropImage').src = myAvatarUrl;
+          document.getElementById('nicknameInput').value = myNickname;
+
+          // 準備 chats 陣列 (好友和群組)
+          chats = [];
+          lbImages = []; // 順便清空 lightbox 圖片
+
+          if (data.friendsMap) {
+            Object.entries(data.friendsMap).forEach(([id, info]) => {
+              chats.push({ 
+                id: id, 
+                type: 'friend', 
+                name: info.nickname, 
+                avatarUrl: info.avatarUrl, 
+                isOnline: info.isOnline 
+              });
+            });
+          }
+          if (data.groups) {
+            data.groups.forEach(g => {
+              chats.push({ 
+                id: g.id, 
+                type: 'group', 
+                name: g.name, 
+                avatarUrl: g.avatarUrl 
+                // 如果後端有傳 members, owner 等，也可以在這裡處理
+              });
+            });
+          }
+          renderChatList();
+        })
+        .catch(err => {
+          console.error('Fetch initial data error:', err);
+          // 可以在這裡顯示一個全頁的錯誤訊息或重試按鈕
+          alert('載入使用者資料時發生錯誤，請嘗試重新整理：' + err.message);
+        });
     }
+
     // 好友邀請清單
     function toggleNotifMenu(){
       const m=document.getElementById('notifMenu');
@@ -270,11 +322,15 @@
       else s.style.display='none';
     }
     function populateGroupMembers(){
-      fetch('/api/user/me').then(r=>r.json()).then(u=>{
-        const cbx=document.getElementById('groupMembersCheckboxes'); cbx.innerHTML='';
-        Object.entries(u.friendsMap).forEach(([id,info])=>{
-          cbx.insertAdjacentHTML('beforeend',`<div><input type="checkbox" id="gm_${id}" value="${id}"><label for="gm_${id}">${info.nickname}</label></div>`);
-        });
+      const cbx = document.getElementById('groupMembersCheckboxes'); 
+      cbx.innerHTML = '';
+      const friends = chats.filter(c => c.type === 'friend');
+      if (friends.length === 0) {
+        cbx.innerHTML = '<div>沒有可加入的好友。</div>';
+        return;
+      }
+      friends.forEach(f => {
+        cbx.insertAdjacentHTML('beforeend', `<div><input type="checkbox" id="gm_${f.id}" value="${f.id}"><label for="gm_${f.id}">${f.name}</label></div>`);
       });
     }
     function submitCreateGroup(){
@@ -465,12 +521,20 @@
           canvas.toBlob(blob=>{
             form.append('avatar',blob,'avatar.png');
             fetch('/api/user/update-profile',{method:'POST',body:form})
-              .then(r=>r.json()).then(_=>{ alert('更新成功'); document.getElementById('profileModal').style.display='none'; loadMe(); });
+              .then(r=>r.json()).then(_=>{ 
+                alert('更新成功'); 
+                document.getElementById('profileModal').style.display='none'; 
+                fetchInitialData();
+              });
           });
         };
       } else {
         fetch('/api/user/update-profile',{method:'POST',body:form})
-          .then(r=>r.json()).then(_=>{ alert('更新成功'); document.getElementById('profileModal').style.display='none'; loadMe(); });
+          .then(r=>r.json()).then(_=>{ 
+            alert('更新成功'); 
+            document.getElementById('profileModal').style.display='none'; 
+            fetchInitialData();
+          });
       }
     };
 
