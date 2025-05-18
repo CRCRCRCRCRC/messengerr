@@ -81,7 +81,7 @@ module.exports = function(io) {
         u.friends.forEach(f => {
           friendsMap[f._id] = {
             nickname: f.nickname,
-            avatarUrl: f.avatarUrl || '/avatars/default-avatar.png',
+            avatarUrl: f.avatarUrl || '/default-avatar.png',
             isOnline: false // 若要顯示在線需在 socket 中額外實作
           };
         });
