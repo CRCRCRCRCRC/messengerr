@@ -41,6 +41,7 @@
     <div class="chat-area">
       <div class="chat-header">
         <span id="chat-with">請選擇聊天對象</span>
+        <span id="typing-indicator" class="text-muted ms-2" style="font-size: 0.85rem; display: none;"></span>
       </div>
       <div class="chat-messages" id="message-log"></div>
       <form id="chat-form" class="chat-input d-none">
@@ -112,6 +113,9 @@
     let myId, myNickname, myAvatarUrl;
     let chats = [], currentChat = null, lbImages = [], lbIndex = 0, contextTargetMsgId = null, currentRoomId = null;
     const msgSound = document.getElementById('msgSound');
+    let typingTimeout = null;
+    let isTyping = false;
+    const TYPING_TIMER_LENGTH = 1500; // ms, 使用者停止輸入多久後判斷為停止
 
     function random32(){
       const arr = new Uint8Array(16);
@@ -193,6 +197,23 @@
       socket.on('offer',data=>{});
       socket.on('answer',data=>{});
       socket.on('ice-candidate',data=>{});
+
+      // ++ 新增：監聽對方正在輸入 ++ 
+      socket.on('user typing start', ({ userId, nickname, chatId, chatType }) => {
+        if (currentChat && currentChat.id === chatId && currentChat.type === chatType) {
+          const indicator = document.getElementById('typing-indicator');
+          indicator.textContent = `${nickname} 正在輸入...`;
+          indicator.style.display = 'inline';
+        }
+      });
+
+      // ++ 新增：監聽對方停止輸入 ++
+      socket.on('user typing stop', ({ userId, chatId, chatType }) => {
+        if (currentChat && currentChat.id === chatId && currentChat.type === chatType) {
+          const indicator = document.getElementById('typing-indicator');
+          indicator.style.display = 'none';
+        }
+      });
 
       loadMe();
     });
@@ -301,6 +322,13 @@
       fetch(`/api/user/chat-history/${id}`).then(r=>r.json()).then(msgs=>{
         msgs.forEach(m=>appendMessage(m,m.from===myId));
       });
+      // ++ 新增：切換聊天時，清除正在輸入提示，並通知伺服器停止輸入（如果之前正在輸入）++
+      document.getElementById('typing-indicator').style.display = 'none';
+      if (isTyping) {
+        socket.emit('typing stop', { chatId: id, chatType: type }); // 通知停止對上一個聊天對象的輸入狀態
+        isTyping = false;
+      }
+      clearTimeout(typingTimeout);
     }
     // 送訊息
     document.getElementById('chat-form').addEventListener('submit',e=>{
@@ -316,6 +344,15 @@
       }
       document.getElementById('message-input').value='';
       msgSound.currentTime=0; msgSound.play().catch(()=>{});
+      // 送出訊息時也停止 typing
+      clearTimeout(typingTimeout);
+      if (isTyping) {
+        isTyping = false;
+        socket.emit('typing stop', { 
+          chatId: currentChat.id, 
+          chatType: currentChat.type 
+        });
+      }
     });
     // 圖片上傳
     function triggerImageUpload(){ document.getElementById('image-input').click(); }
@@ -436,6 +473,41 @@
           .then(r=>r.json()).then(_=>{ alert('更新成功'); document.getElementById('profileModal').style.display='none'; loadMe(); });
       }
     };
+
+    // ========== 訊息輸入框事件處理 ========== 
+    const messageInput = document.getElementById('message-input');
+
+    messageInput.addEventListener('input', () => {
+      if (!currentChat) return;
+      if (!isTyping) {
+        isTyping = true;
+        socket.emit('typing start', { 
+          chatId: currentChat.id, 
+          chatType: currentChat.type 
+        });
+      }
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        isTyping = false;
+        socket.emit('typing stop', { 
+          chatId: currentChat.id, 
+          chatType: currentChat.type 
+        });
+      }, TYPING_TIMER_LENGTH);
+    });
+
+    // 光標離開輸入框，如果沒有內容，也視為停止輸入 (可選)
+    messageInput.addEventListener('blur', () => {
+      if (!currentChat || messageInput.value.trim() !== '') return;
+      clearTimeout(typingTimeout);
+      if (isTyping) {
+        isTyping = false;
+        socket.emit('typing stop', { 
+          chatId: currentChat.id, 
+          chatType: currentChat.type 
+        });
+      }
+    });
 
     window.onload = ()=>{ /* no-op；透過 socket.connect() 自動載入 */ };
   </script>
