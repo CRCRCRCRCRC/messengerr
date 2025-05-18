@@ -392,14 +392,21 @@
       currentChat = { id, type, name };
       document.getElementById('chat-with').textContent = type === 'friend' ? `與 ${name} 聊天中` : name;
       const messageLog = document.getElementById('message-log');
-      messageLog.innerHTML = ''; // 清空時會移除 loading indicator，需要重新加上或確保不清空它
-      oldestMessageIdForCurrentChat = null;
-      isLoadingMoreHistory = false;
-      canLoadMoreHistory = true;
-      document.getElementById('history-loading-indicator').style.display = 'none';
-      if (!messageLog.querySelector('#history-loading-indicator')) {
-         messageLog.insertAdjacentHTML('afterbegin', '<div id="history-loading-indicator" style="text-align: center; padding: 10px; display: none;">載入較早的訊息中...</div>');
-      }
+      
+      // ++ 改進清空訊息的方式，保留 loading indicator ++ 
+      const messagesToRemove = messageLog.querySelectorAll('.message');
+      messagesToRemove.forEach(msgEl => msgEl.remove());
+      // messageLog.innerHTML = ''; // 原來的清空方式
+
+      oldestMessageIdForCurrentChat = null; // ++ 確保初始狀態正確 ++
+      isLoadingMoreHistory = false;       // ++ 確保初始狀態正確 ++
+      canLoadMoreHistory = true;          // ++ 確保初始狀態正確 ++
+      
+      const loadingIndicator = document.getElementById('history-loading-indicator');
+      if (loadingIndicator) loadingIndicator.style.display = 'none';
+      // if (!messageLog.querySelector('#history-loading-indicator')) { // 如果上方清空方式改變，這裡可能需要調整或移除
+      //    messageLog.insertAdjacentHTML('afterbegin', '<div id="history-loading-indicator" style="text-align: center; padding: 10px; display: none;">載入較早的訊息中...</div>');
+      // }
 
       document.getElementById('chat-form').classList.remove('d-none');
       document.getElementById('message-input').focus();
@@ -415,9 +422,8 @@
         });
         oldestMessageIdForCurrentChat = currentChatData.recentMessages[0]._id;
       } else {
-        console.log('[openChat] No preloaded messages, attempting to load history.');
-        canLoadMoreHistory = true;
-        loadMoreMessages();
+        console.log('[openChat] No preloaded messages for this chat, attempting to load history.');
+        loadMoreMessages(); // 自動載入第一批歷史 (確保上面的狀態已正確設置)
       }
 
       if (type === 'friend') {
@@ -710,13 +716,18 @@
       if (oldestMessageIdForCurrentChat) {
         apiUrl += `&beforeMessageId=${oldestMessageIdForCurrentChat}`;
       }
+      console.log('[loadMoreMessages] Fetching URL:', apiUrl); // ++ 詳細日誌 ++
 
       try {
         const res = await fetch(apiUrl);
+        console.log('[loadMoreMessages] Response status:', res.status); // ++ 詳細日誌 ++
         if (!res.ok) {
+          console.error('[loadMoreMessages] Fetch failed with status:', res.status, 'Response Text:', await res.text()); // ++ 記錄錯誤回應內容 ++
+          canLoadMoreHistory = false; // 載入失敗，假設不能再載入以避免重複嘗試
           throw new Error(`Failed to fetch more history: ${res.status}`);
         }
         const olderMessages = await res.json();
+        console.log('[loadMoreMessages] Fetched messages (count:', olderMessages ? olderMessages.length : 0, '):', olderMessages); // ++ 詳細日誌 ++
 
         const messageLogBox = document.getElementById('message-log');
         const oldScrollHeight = messageLogBox.scrollHeight;
