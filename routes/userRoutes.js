@@ -63,6 +63,9 @@ module.exports = function(io) {
             const sender = msg.from.equals(userId) ? userData : friend;
             msg.nickname = sender.nickname;
             msg.avatarUrl = sender.avatarUrl || '/default-avatar.png';
+            msg.isSelf = msg.from.equals(userId);
+            msg.from = msg.from.toString();
+            msg.to = msg.to.toString();
           }
 
           friendsMap[friend._id.toString()] = {
@@ -88,6 +91,9 @@ module.exports = function(io) {
             const senderData = await User.findById(msg.from).select('nickname avatarUrl').lean();
             msg.nickname = senderData ? senderData.nickname : '未知用戶';
             msg.avatarUrl = senderData ? (senderData.avatarUrl || '/default-avatar.png') : '/default-avatar.png';
+            msg.isSelf = msg.from.equals(userId);
+            msg.from = msg.from.toString();
+            if (msg.group) msg.group = msg.group.toString();
           }
           group.recentMessages = recentMessages.reverse(); // 反轉為時間升序
         }
@@ -354,20 +360,47 @@ module.exports = function(io) {
   // 好友歷史紀錄 (for chat)
   router.get('/chat-history/:userId', async (req, res) => {
     const { userId } = req.params;
+    const { beforeMessageId, limit = 20 } = req.query; // ++ 新增分頁參數 ++
     const Message = require('../models/Message');
-    const msgs = await Message.find({
+
+    const query = {
       $or: [
         { from: req.user._id, to: userId },
         { from: userId, to: req.user._id }
       ]
-    }).sort({ timestamp: 1 }).lean();
-    // 附加對方的暱稱/頭像
+    };
+
+    // ++ 如果有 beforeMessageId，則查詢此 ID 之前的訊息 ++
+    if (beforeMessageId) {
+      try {
+        const beforeMessage = await Message.findById(beforeMessageId).lean();
+        if (beforeMessage) {
+          query.timestamp = { $lt: beforeMessage.timestamp };
+        }
+      } catch (err) {
+        console.error('Error finding beforeMessage:', err);
+        // 可以選擇回傳錯誤，或忽略此參數繼續
+      }
+    }
+
+    const msgs = await Message.find(query)
+      .sort({ timestamp: -1 }) // 改為降序，方便 limit 和後續反轉
+      .limit(parseInt(limit))
+      .lean();
+
+    // 附加對方的暱稱/頭像，並確保 ID 是字串
     const user = await User.findById(userId).select('nickname avatarUrl');
-    res.json(msgs.map(msg => ({
+    const processedMsgs = msgs.map(msg => ({
       ...msg,
-      nickname: msg.from.equals(req.user._id) ? req.user.nickname : (user.nickname),
-      avatarUrl: msg.from.equals(req.user._id) ? (req.user.avatarUrl || '/default-avatar.png') : (user.avatarUrl || '/default-avatar.png')
-    })));
+      _id: msg._id.toString(), // ++ ID 轉字串 ++
+      from: msg.from.toString(), // ++ ID 轉字串 ++
+      to: msg.to.toString(), // ++ ID 轉字串 ++
+      isSelf: msg.from.equals(req.user._id.toString()), // ++ 新增 isSelf ++
+      nickname: msg.from.equals(req.user._id.toString()) ? req.user.nickname : (user.nickname),
+      avatarUrl: msg.from.equals(req.user._id.toString()) ? (req.user.avatarUrl || '/default-avatar.png') : (user.avatarUrl || '/default-avatar.png')
+    }));
+
+    res.json(processedMsgs.reverse()); // 反轉回時間升序給前端
   });
 
   return router;
