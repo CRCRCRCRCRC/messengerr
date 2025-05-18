@@ -223,6 +223,37 @@ io.on('connection', async socket => {
   socket.on('disconnect', () => {
     socket.broadcast.emit('friend-offline', { id: socket.userData.id });
   });
+
+  // ++ 新增：處理正在輸入提示 ++ 
+  socket.on('typing start', ({ chatId, chatType }) => {
+    const eventData = {
+      userId: socket.userData.id,
+      nickname: socket.userData.nickname,
+      chatId: chatId,
+      chatType: chatType
+    };
+    if (chatType === 'friend') {
+      // 私訊：只發給對方
+      socket.to(chatId).emit('user typing start', eventData);
+    } else if (chatType === 'group') {
+      // 群組：發給群組內除了自己以外的所有人
+      socket.to(chatId).except(socket.userData.id).emit('user typing start', eventData);
+    }
+  });
+
+  socket.on('typing stop', ({ chatId, chatType }) => {
+    const eventData = {
+      userId: socket.userData.id,
+      chatId: chatId,
+      chatType: chatType
+    };
+    if (chatType === 'friend') {
+      socket.to(chatId).emit('user typing stop', eventData);
+    } else if (chatType === 'group') {
+      socket.to(chatId).except(socket.userData.id).emit('user typing stop', eventData);
+    }
+  });
+
 });
 
 // 404 + error
