@@ -117,7 +117,7 @@ module.exports = function(io) {
           friendsMap[f._id] = {
             nickname: f.nickname,
             avatarUrl: f.avatarUrl || '/default-avatar.png',
-            isOnline: false // 若要顯示在線需在 socket 中額外實作
+            isOnline: false
           };
         });
       }
@@ -125,7 +125,7 @@ module.exports = function(io) {
         id: u._id.toString(),
         nickname: u.nickname,
         userCode: u.userCode,
-        avatarUrl: u.avatarUrl || '/avatars/default-avatar.png',
+        avatarUrl: u.avatarUrl || '/default-avatar.png',
         friendsMap
       });
     } catch (err) {
@@ -160,7 +160,7 @@ module.exports = function(io) {
     io.to(target._id.toString()).emit('new-friend-request', {
       from: req.user._id,
       nickname: req.user.nickname,
-      avatarUrl: req.user.avatarUrl || '/avatars/default-avatar.png'
+      avatarUrl: req.user.avatarUrl || '/default-avatar.png'
     });
 
     return res.json({ message: '邀請已送出' });
@@ -176,7 +176,7 @@ module.exports = function(io) {
         _id: r._id,
         fromId: r.from._id,
         nickname: r.from.nickname,
-        avatarUrl: r.from.avatarUrl || '/avatars/default-avatar.png'
+        avatarUrl: r.from.avatarUrl || '/default-avatar.png'
       }))
     );
   });
@@ -199,13 +199,13 @@ module.exports = function(io) {
       io.to(me._id.toString()).emit('new-friend', {
         id: you._id.toString(),
         nickname: you.nickname,
-        avatarUrl: you.avatarUrl || '/avatars/default-avatar.png',
+        avatarUrl: you.avatarUrl || '/default-avatar.png',
         isOnline: false
       });
       io.to(you._id.toString()).emit('new-friend', {
         id: me._id.toString(),
         nickname: me.nickname,
-        avatarUrl: me.avatarUrl || '/avatars/default-avatar.png',
+        avatarUrl: me.avatarUrl || '/default-avatar.png',
         isOnline: false
       });
 
@@ -244,7 +244,7 @@ module.exports = function(io) {
     res.json(msgs.map(msg => ({
       ...msg,
       nickname: msg.from.equals(req.user._id) ? req.user.nickname : (user.nickname),
-      avatarUrl: msg.from.equals(req.user._id) ? req.user.avatarUrl : (user.avatarUrl || '/avatars/default-avatar.png')
+      avatarUrl: msg.from.equals(req.user._id) ? (req.user.avatarUrl || '/default-avatar.png') : (user.avatarUrl || '/default-avatar.png')
     })));
   });
 
