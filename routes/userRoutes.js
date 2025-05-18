@@ -193,7 +193,27 @@ module.exports = function(io) {
       fr.status = 'accepted';
       await fr.save();
 
-      // ------- 雙方即時更新好友列表 -------
+      // ------- 更新雙方活躍 Socket Session 中的好友列表 -------
+      const currentUserMongoId = req.user._id;
+      const newFriendMongoId = fr.from; // requesterId 是字串，fr.from 是 ObjectId
+
+      for (const connectedSocket of io.sockets.sockets.values()) {
+        if (connectedSocket.userData && connectedSocket.userData.id === currentUserMongoId.toString()) {
+          if (!connectedSocket.userData.friends.includes(newFriendMongoId.toString())) {
+            connectedSocket.userData.friends.push(newFriendMongoId.toString());
+            console.log(`Updated socket session for user ${currentUserMongoId}: added friend ${newFriendMongoId}`)
+          }
+        }
+        if (connectedSocket.userData && connectedSocket.userData.id === newFriendMongoId.toString()) {
+          if (!connectedSocket.userData.friends.includes(currentUserMongoId.toString())) {
+            connectedSocket.userData.friends.push(currentUserMongoId.toString());
+            console.log(`Updated socket session for user ${newFriendMongoId}: added friend ${currentUserMongoId}`)
+          }
+        }
+      }
+      // ------- 結束更新活躍 Socket Session -------
+
+      // ------- 雙方即時更新客戶端好友列表 -------
       const me = await User.findById(req.user._id);
       const you = await User.findById(requesterId);
       io.to(me._id.toString()).emit('new-friend', {
