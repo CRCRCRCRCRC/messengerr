@@ -155,6 +155,8 @@ io.on('connection', async socket => {
     });
     const payload = {
       ...msg.toObject(),
+      from: msg.from.toString(),
+      to: msg.to.toString(),
       nickname: socket.userData.nickname,
       avatarUrl: socket.userData.avatarUrl
     };
@@ -172,6 +174,8 @@ io.on('connection', async socket => {
     });
     const payload = {
       ...msg.toObject(),
+      from: msg.from.toString(),
+      group: msg.group.toString(),
       nickname: socket.userData.nickname,
       avatarUrl: socket.userData.avatarUrl
     };
