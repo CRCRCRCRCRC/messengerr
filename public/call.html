@@ -140,6 +140,10 @@
         if(pc) console.log('ICE 連線狀態改變:', pc.iceConnectionState);
     };
     
+    pc.onsignalingstatechange = () => {
+        if(pc) console.log('Signaling state changed:', pc.signalingState);
+    };
+    
     pc.onnegotiationneeded = async () => {
         console.log('onnegotiationneeded 事件觸發');
         try {
