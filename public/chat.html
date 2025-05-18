@@ -43,7 +43,9 @@
         <span id="chat-with">請選擇聊天對象</span>
         <span id="typing-indicator" class="text-muted ms-2" style="font-size: 0.85rem; display: none;"></span>
       </div>
-      <div class="chat-messages" id="message-log"></div>
+      <div class="chat-messages" id="message-log">
+        <div id="history-loading-indicator" style="text-align: center; padding: 10px; display: none;">載入較早的訊息中...</div>
+      </div>
       <form id="chat-form" class="chat-input d-none">
         <div class="input-group">
           <button class="btn btn-outline-secondary" type="button" onclick="triggerImageUpload()">📷</button>
@@ -117,6 +119,14 @@
     let isTyping = false;
     const TYPING_TIMER_LENGTH = 1500; // ms, 使用者停止輸入多久後判斷為停止
 
+    // ++ 新增：歷史訊息載入相關變數 ++
+    let oldestMessageIdForCurrentChat = null;
+    let isLoadingMoreHistory = false;
+    let canLoadMoreHistory = true;
+    const HISTORY_LOAD_LIMIT = 20; 
+    // ++ 結束：歷史訊息載入相關變數 ++
+    const RECENT_MESSAGES_PRELOAD_COUNT = 10; // ++ 與後端 initial-data 一致的預載數量 ++
+
     function random32(){
       const arr = new Uint8Array(16);
       crypto.getRandomValues(arr);
@@ -172,21 +182,28 @@
       });
       // 聊天紀錄
       socket.on('chat history', data=>{
-        data.messages.forEach(m=>appendMessage(m,m.from===myId));
+        // data.messages.forEach(m=>appendMessage(m,m.from===myId));
+        // 如果後續要用，也需要調整 appendMessage 的調用
       });
       // 私訊
       socket.on('private message', m=>{
         if(m.from!==myId){
           msgSound.currentTime=0; msgSound.play().catch(()=>{});
         }
-        if(currentChat?.type==='friend'&&m.from===currentChat.id) appendMessage(m,false);
+        // if(currentChat?.type==='friend'&&m.from===currentChat.id) appendMessage(m,false);
+        if(currentChat?.type==='friend' && (m.from === currentChat.id || m.to === currentChat.id)) {
+          appendMessage(m); // ++ 移除 isSelf 參數，從 msg.isSelf 取值 (m 物件應包含 isSelf) ++
+        }
       });
       // 群組訊息
       socket.on('group message', m=>{
         if(m.from!==myId){
           msgSound.currentTime=0; msgSound.play().catch(()=>{});
         }
-        if(currentChat?.type==='group'&&m.groupId===currentChat.id) appendMessage(m,false);
+        // if(currentChat?.type==='group'&&m.groupId===currentChat.id) appendMessage(m,false);
+        if(currentChat?.type==='group' && m.groupId === currentChat.id) {
+          appendMessage(m); // ++ 移除 isSelf 參數，從 msg.isSelf 取值 (m 物件應包含 isSelf) ++
+        }
       });
       // 收回
       socket.on('message recalled', d=>{
@@ -375,7 +392,22 @@
       currentChat = { id, type, name };
       document.getElementById('chat-with').textContent = type === 'friend' ? `與 ${name} 聊天中` : name;
       const messageLog = document.getElementById('message-log');
-      messageLog.innerHTML = '';
+      messageLog.innerHTML = ''; // 清空時會移除 loading indicator，需要重新加上或確保不清空它
+      // ++ 重置歷史訊息載入狀態 ++
+      oldestMessageIdForCurrentChat = null;
+      isLoadingMoreHistory = false;
+      canLoadMoreHistory = true;
+      document.getElementById('history-loading-indicator').style.display = 'none';
+      // ++ 確保 loading indicator 在清空後依然存在 (如果清空方式會移除它的話) 或者在清空後重新插入它
+      // 較好的做法是，messageLog 內只有訊息，loading indicator 在 messageLog 外部或作為第一個子元素且不受清空影響
+      // 目前的清空方式 innerHTML = '' 會移除所有子元素，因此在 appendMessage 之前，如果需要，應重新添加。
+      // 為簡化，我們先假設清空後，後續的 appendMessage 會重新建立結構。
+      // 或是，修改清空方式，只移除 class 為 message 的元素。
+      // 這裡我們先重新插入（雖然目前結構清空後，下次載入又會加載）
+      if (!messageLog.querySelector('#history-loading-indicator')) {
+         messageLog.insertAdjacentHTML('afterbegin', '<div id="history-loading-indicator" style="text-align: center; padding: 10px; display: none;">載入較早的訊息中...</div>');
+      }
+
       document.getElementById('chat-form').classList.remove('d-none');
       document.getElementById('message-input').focus();
 
@@ -383,8 +415,16 @@
       if (currentChatData && currentChatData.recentMessages && currentChatData.recentMessages.length > 0) {
         console.log(`顯示 ${currentChatData.recentMessages.length} 條預載入的 ${type} 訊息 for ${name}`);
         currentChatData.recentMessages.forEach(msg => {
-          appendMessage(msg, msg.from === myId);
+          appendMessage(msg); // ++ 移除 isSelf 參數，從 msg.isSelf 取值 ++
         });
+        // ++ 更新 oldestMessageId 和 canLoadMoreHistory 狀態 ++
+        oldestMessageIdForCurrentChat = currentChatData.recentMessages[0]._id;
+        if (currentChatData.recentMessages.length < RECENT_MESSAGES_PRELOAD_COUNT) {
+          canLoadMoreHistory = false;
+        }
+      } else {
+        // 如果沒有預載入訊息，則認為可以載入更多 (除非後續首次載入API返回空)
+        canLoadMoreHistory = true; 
       }
 
       if (type === 'friend') {
@@ -405,10 +445,36 @@
       const now=new Date();
       if(currentChat.type==='friend'){
         socket.emit('private message',{toUserId:currentChat.id,message:txt});
-        appendMessage({id:null,from:myId,to:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
+        // appendMessage({id:null,from:myId,to:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
+        appendMessage({
+            _id:null, // 本地發送的訊息通常沒有DB ID，或用臨時ID
+            from: myId, 
+            to: currentChat.id, 
+            message: txt, 
+            imageUrl:null, 
+            timestamp:now, 
+            read:false, 
+            recalled:false, 
+            avatarUrl:myAvatarUrl, 
+            nickname:myNickname, 
+            isSelf: true // 自己發送的，isSelf 為 true
+        });
       } else {
         socket.emit('group message',{to:currentChat.id,message:txt});
-        appendMessage({id:null,from:myId,groupId:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
+        // appendMessage({id:null,from:myId,groupId:currentChat.id,message:txt,imageUrl:null,timestamp:now,read:false,recalled:false,avatarUrl:myAvatarUrl,nickname:myNickname},true);
+        appendMessage({
+            _id:null, 
+            from: myId, 
+            groupId: currentChat.id, 
+            message: txt, 
+            imageUrl:null, 
+            timestamp:now, 
+            read:false, 
+            recalled:false, 
+            avatarUrl:myAvatarUrl, 
+            nickname:myNickname, 
+            isSelf: true // 自己發送的，isSelf 為 true
+        });
       }
       document.getElementById('message-input').value='';
       msgSound.currentTime=0; msgSound.play().catch(()=>{});
@@ -427,37 +493,81 @@
     function uploadImage(e){
       const f=e.target.files[0]; if(!f||!currentChat) return;
       const form=new FormData(); form.append('image',f); form.append('to',currentChat.id); form.append('type',currentChat.type);
-      fetch('/api/upload-image',{method:'POST',body:form}).then(r=>r.json()).then(m=>appendMessage(m,m.from===myId));
+      fetch('/api/upload-image',{method:'POST',body:form}).then(r=>r.json()).then(m => {
+        //   appendMessage(m,m.from===myId)
+        // 後端 /api/upload-image 回傳的訊息物件也需要包含 isSelf
+        // 假設它已包含 isSelf，或者在這裡根據 m.from === myId 判斷並添加
+        if (m.from && !m.hasOwnProperty('isSelf')) {
+            m.isSelf = m.from === myId;
+        }
+        appendMessage(m);
+      });
     }
     // 顯示訊息
-    function appendMessage(msg,isSelf){
+    function appendMessage(msg) {
+      const isSelf = msg.isSelf; // ++ 從 msg 物件獲取 isSelf ++
       const box=document.getElementById('message-log');
       const div=document.createElement('div'); div.className='message'+(isSelf?' self':'');
-      if(msg.id) div.dataset.id=msg.id;
+      if(msg._id) div.dataset.id=msg._id; // ++ 使用 msg._id ++
       let content='';
       if(msg.recalled) content='<em style="color:gray;">此則訊息已被收回</em>';
       else if(msg.imageUrl) content=`<img src="${msg.imageUrl}" class="content-image">`;
       else content=msg.message;
+
+      // ++ 處理群組和私訊的發送者資訊差異 ++
+      let senderNickname = msg.nickname;
+      let senderAvatarUrl = msg.avatarUrl;
+
+      if (currentChat.type === 'group' && msg.from && typeof msg.from === 'object') {
+        // 群組訊息，且 msg.from 是一個物件 (從歷史記錄或 socket 推播過來時，後端已 populate)
+        senderNickname = msg.from.nickname;
+        senderAvatarUrl = msg.from.avatarUrl;
+      } else if (currentChat.type === 'friend') {
+        // 私訊或自己發送的群組訊息 (此時 nickname/avatarUrl 在頂層)
+        senderNickname = isSelf ? myNickname : currentChat.name; // 對方暱稱從 currentChat.name 取
+        senderAvatarUrl = isSelf ? myAvatarUrl : chats.find(c => c.id === currentChat.id && c.type === 'friend')?.avatarUrl;
+      }
+      // 如果還是沒有，用 msg 裡面的 (例如預載入的訊息)
+      if (!senderNickname) senderNickname = msg.nickname;
+      if (!senderAvatarUrl) senderAvatarUrl = msg.avatarUrl;
+      // 最後的保底
+      if (!senderAvatarUrl) senderAvatarUrl = '/default-avatar.png';
+
+
       div.innerHTML=`
         <div style="display:flex;gap:.5rem;">
-          <img src="${msg.avatarUrl}" width="36" height="36" class="rounded-circle">
+          <img src="${senderAvatarUrl}" width="36" height="36" class="rounded-circle">
           <div>
-            <strong>${msg.nickname}</strong>
+            <strong>${senderNickname}</strong>
             <div class="bubble-content">${content}</div>
             <span class="time">${new Date(msg.timestamp).toLocaleTimeString('zh-TW')}</span>
             ${msg.read&&isSelf?'<div class="read-indicator">✓ 已讀</div>':''}
           </div>
         </div>
       `;
-      if(isSelf&&!msg.recalled&&msg.id){
+      // if(isSelf&&!msg.recalled&&msg.id){ // ++ 使用 msg._id ++
+      if(isSelf&&!msg.recalled&&msg._id){
         div.addEventListener('contextmenu',e=>{
           e.preventDefault();
-          contextTargetMsgId=msg.id;
+          contextTargetMsgId=msg._id; // ++ 使用 msg._id ++
           const mnu=document.getElementById('msg-context-menu');
           mnu.style.top=e.pageY+'px'; mnu.style.left=e.pageX+'px'; mnu.style.display='block';
         });
       }
-      box.appendChild(div); box.scrollTop=box.scrollHeight;
+      // box.appendChild(div); box.scrollTop=box.scrollHeight;
+      // ++ 如果是載入更多歷史訊息，要插入到最前面(除了loading indicator之外) ++
+      const loadingIndicator = box.querySelector('#history-loading-indicator');
+      if (msg.prepend) { // 假設一個 msg.prepend 標記來指示這是載入的舊訊息
+        if (loadingIndicator) {
+            loadingIndicator.insertAdjacentElement('afterend', div);
+        } else {
+            box.insertBefore(div, box.firstChild);
+        }
+      } else {
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight; // 新訊息滾動到底部
+      }
+
       if(msg.imageUrl&&!msg.recalled){
         lbImages.push(msg.imageUrl);
         setTimeout(()=>{
@@ -585,7 +695,77 @@
       }
     });
 
-    window.onload = ()=>{ /* no-op；透過 socket.connect() 自動載入 */ };
+    // ++ 確保DOM載入後再綁定事件 ++
+    document.addEventListener('DOMContentLoaded', () => {
+      const messageLog = document.getElementById('message-log');
+      if (messageLog) {
+        messageLog.addEventListener('scroll', handleMessageLogScroll);
+      }
+    });
+
+    function handleMessageLogScroll() {
+      const messageLog = document.getElementById('message-log');
+      // 如果滾動到頂部，且沒有正在載入，且還有更多歷史可載入
+      if (messageLog.scrollTop === 0 && !isLoadingMoreHistory && canLoadMoreHistory && currentChat) {
+        loadMoreMessages();
+      }
+    }
+
+    async function loadMoreMessages() {
+      if (!currentChat || !canLoadMoreHistory || isLoadingMoreHistory) return;
+
+      isLoadingMoreHistory = true;
+      const loadingIndicator = document.getElementById('history-loading-indicator');
+      if (loadingIndicator) loadingIndicator.style.display = 'block';
+
+      let apiUrl = '';
+      if (currentChat.type === 'friend') {
+        apiUrl = `/api/user/chat-history/${currentChat.id}?limit=${HISTORY_LOAD_LIMIT}`;
+      } else if (currentChat.type === 'group') {
+        apiUrl = `/api/group/chat-history/${currentChat.id}?limit=${HISTORY_LOAD_LIMIT}`;
+      }
+
+      if (oldestMessageIdForCurrentChat) {
+        apiUrl += `&beforeMessageId=${oldestMessageIdForCurrentChat}`;
+      }
+
+      try {
+        const res = await fetch(apiUrl);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch more history: ${res.status}`);
+        }
+        const olderMessages = await res.json();
+
+        const messageLogBox = document.getElementById('message-log');
+        const oldScrollHeight = messageLogBox.scrollHeight;
+        const oldScrollTop = messageLogBox.scrollTop; // 應該接近0
+
+        if (olderMessages && olderMessages.length > 0) {
+          olderMessages.forEach(msg => {
+            msg.prepend = true; // 標記為預置訊息
+            appendMessage(msg);
+          });
+          oldestMessageIdForCurrentChat = olderMessages[0]._id; // 更新最舊的ID
+          
+          // 保持滾動位置
+          messageLogBox.scrollTop = oldScrollTop + (messageLogBox.scrollHeight - oldScrollHeight);
+
+          if (olderMessages.length < HISTORY_LOAD_LIMIT) {
+            canLoadMoreHistory = false; // 沒有更多了
+          }
+        } else {
+          canLoadMoreHistory = false; // 沒有返回訊息，代表沒有更多了
+        }
+      } catch (error) {
+        console.error('Error loading more messages:', error);
+        // 可以在此處向使用者顯示錯誤提示
+      } finally {
+        isLoadingMoreHistory = false;
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+      }
+    }
+
+    // window.onload = ()=>{ /* no-op；透過 socket.connect() 自動載入 */ };
   </script>
 </body>
 </html>
