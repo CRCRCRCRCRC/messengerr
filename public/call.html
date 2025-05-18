@@ -18,70 +18,169 @@
   const socket = io();
   const roomId = location.pathname.split('/').pop();
   let pc = null, localStream = null;
+  console.log(`通話房間 ID: ${roomId}`);
 
   // Join call room
   socket.emit('join-call',{ roomId });
+  console.log('已發送 join-call 事件');
 
   // Handle hangup
   document.getElementById('hangup').onclick = () => {
-    if(pc){ pc.close(); pc = null; }
+    console.log('掛斷按鈕點擊');
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      console.log('本地媒體軌道已停止');
+    }
+    if(pc){
+      pc.close();
+      pc = null;
+      console.log('RTCPeerConnection 已關閉');
+    }
     window.close();
   };
 
   // When both sides join,第一個加入後會收到對方入室事件
   socket.on('offer', async ({ from, offer }) => {
-    // 被叫方／第二個加入：建立 Peer，接 offer，回 answer
-    await startPeer();
-    await pc.setRemoteDescription(offer);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit('answer',{ roomId, answer });
+    console.log('收到 offer 事件，來自:', from, 'Offer:', offer);
+    if (!pc) {
+        console.log('收到 offer 時 pc 未建立，呼叫 startPeer');
+        await startPeer();
+    }
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log('遠端描述 (offer) 設定成功');
+      const answer = await pc.createAnswer();
+      console.log('Answer 建立成功:', answer);
+      await pc.setLocalDescription(answer);
+      console.log('本地描述 (answer) 設定成功');
+      socket.emit('answer',{ roomId, answer });
+      console.log('已發送 answer 事件');
+    } catch (err) {
+      console.error('處理 offer 或建立 answer 時發生錯誤:', err);
+    }
   });
 
   // 呼叫者收到 answer
   socket.on('answer', async ({ answer }) => {
-    await pc.setRemoteDescription(answer);
+    console.log('收到 answer 事件:', answer);
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log('遠端描述 (answer) 設定成功');
+    } catch (err) {
+      console.error('設定遠端描述 (answer) 時發生錯誤:', err);
+    }
   });
 
   // ICE candidate 交換
   socket.on('ice-candidate', async ({ candidate }) => {
-    try { await pc.addIceCandidate(candidate); }
-    catch(e){ console.error(e); }
+    console.log('收到 ice-candidate 事件:', candidate);
+    try {
+      if (candidate) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log('ICE candidate 新增成功');
+      } else {
+        console.log('收到空的 ICE candidate');
+      }
+    } catch(err){
+      console.error('新增 ICE candidate 時發生錯誤:', err);
+    }
   });
 
   // 都進房後，如果我是呼叫者，就先發 offer
   socket.on('connect', async () => {
+    console.log('Socket 已連接，ID:', socket.id);
     // delay 一下等對方也 join
     setTimeout(async ()=> {
-      // 建 Peer 並拿 mic
-      await startPeer();
-      // only for the one who先 click call (呼叫者)
-      pc.onnegotiationneeded = async ()=>{
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('offer',{ roomId, offer });
-      };
+      console.log('setTimeout 觸發，準備 startPeer (如果我是呼叫者)');
+      if (!pc) { // 確保 pc 只被初始化一次，或者根據邏輯判斷是否為呼叫方來決定是否主動 startPeer
+          await startPeer();
+      }
+      // onnegotiationneeded 通常由 pc 內部狀態變化觸發 (例如 addTrack)
+      // 如果你是呼叫方，且希望在 startPeer 完成後主動發起 offer，可以這樣做
+      // 但更好的做法是依賴 onnegotiationneeded 事件
     }, 500);
   });
 
   // 公共的：建立 RTCPeerConnection and 本地 stream
   async function startPeer(){
-    if(pc) return;
+    if(pc) {
+      console.log('startPeer 被呼叫，但 pc 已存在，返回。');
+      return;
+    }
+    console.log('startPeer 函式開始執行');
     pc = new RTCPeerConnection({ 
       iceServers:[{urls:'stun:stun.l.google.com:19302'}] 
     });
+    console.log('RTCPeerConnection 已建立');
+
     pc.onicecandidate = e => {
       if(e.candidate){
+        console.log('產生新的 ICE candidate:', e.candidate);
         socket.emit('ice-candidate',{ roomId, candidate:e.candidate });
+      } else {
+        console.log('所有 ICE candidates 都已收集完畢。');
       }
     };
+
     pc.ontrack = e =>{
-      document.getElementById('remoteAudio').srcObject = e.streams[0];
+      console.log('收到遠端軌道 (ontrack 事件):', e);
+      if (e.streams && e.streams[0]) {
+        console.log('遠端串流:', e.streams[0]);
+        document.getElementById('remoteAudio').srcObject = e.streams[0];
+        console.log('遠端音訊串流已設定到 remoteAudio 元素');
+         e.streams[0].getTracks().forEach(track => {
+            console.log('遠端軌道詳情:', track.kind, track.label, track.id, track.readyState);
+        });
+      } else {
+        console.warn('ontrack 事件觸發，但 e.streams[0] 不存在');
+      }
     };
-    localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-    document.getElementById('localAudio').srcObject = localStream;
+
+    pc.oniceconnectionstatechange = () => {
+        if(pc) console.log('ICE 連線狀態改變:', pc.iceConnectionState);
+    };
+    
+    pc.onnegotiationneeded = async () => {
+        console.log('onnegotiationneeded 事件觸發');
+        try {
+            console.log('準備建立 offer');
+            const offer = await pc.createOffer();
+            console.log('Offer 建立成功:', offer);
+            await pc.setLocalDescription(offer);
+            console.log('本地描述 (offer) 設定成功');
+            socket.emit('offer',{ roomId, offer });
+            console.log('已透過 onnegotiationneeded 發送 offer 事件');
+        } catch (err) {
+            console.error('onnegotiationneeded 處理時發生錯誤:', err);
+        }
+    };
+
+    try {
+      console.log('準備獲取本地媒體串流 (getUserMedia)');
+      localStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+      console.log('本地媒體串流獲取成功:', localStream);
+      localStream.getTracks().forEach(track => {
+        console.log('將本地軌道加入到 PeerConnection:', track);
+        pc.addTrack(track, localStream);
+      });
+      document.getElementById('localAudio').srcObject = localStream;
+      console.log('本地音訊串流已設定到 localAudio 元素');
+    } catch (err) {
+      console.error('獲取本地媒體串流 (getUserMedia) 失敗:', err);
+    }
   }
+
+  // 初始呼叫 (可以考慮由某個明確的「開始通話」按鈕觸發，而不是 socket connect)
+  // 如果這個頁面是專門給通話的，那麼一載入就嘗試建立 peer connection 是合理的
+  // 但需要協調誰是 offerer 和 answerer
+  // 如果是呼叫方打開此頁面，它應該發起 offer
+  // 如果是被叫方打開此頁面，它應該等待 offer
+  // 目前的邏輯是: `setTimeout` 內部的 `startPeer` 會讓第一個進房的 (可能是呼叫者) 準備好發 offer (透過 onnegotiationneeded)
+  // 而被叫方會在收到 `offer` 事件後才呼叫 `startPeer`
+  // 為了避免雙方都主動呼叫 startPeer() 並觸發 onnegotiationneeded, 
+  // socket.on('connect') 內的 startPeer() 應該只在判斷自己是呼叫者時執行
+  // 或者，移除 socket.on('connect') 中的 startPeer, 改為由一個初始信令 (例如，誰是呼叫者) 來決定誰先調用 startPeer 和觸發 offer
+
 </script>
 </body>
 </html>
