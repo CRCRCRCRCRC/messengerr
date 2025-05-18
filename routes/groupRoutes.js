@@ -31,9 +31,42 @@ router.get('/list', async (req, res) => {
 
 // 取得群組聊天歷史
 router.get('/chat-history/:groupId', async (req, res) => {
-  const msgs = await Message.find({ group: req.params.groupId })
-    .sort({ timestamp: 1 });
-  res.json(msgs);
+  const { groupId } = req.params;
+  const { beforeMessageId, limit = 20 } = req.query;
+  const currentUserId = req.user._id;
+
+  const query = { group: groupId };
+
+  if (beforeMessageId) {
+    try {
+      const beforeMessage = await Message.findById(beforeMessageId).lean();
+      if (beforeMessage) {
+        query.timestamp = { $lt: beforeMessage.timestamp };
+      }
+    } catch (err) {
+      console.error('Error finding beforeMessage for group chat:', err);
+    }
+  }
+
+  const msgs = await Message.find(query)
+    .sort({ timestamp: -1 })
+    .limit(parseInt(limit))
+    .populate('from', 'nickname avatarUrl')
+    .lean();
+
+  const processedMsgs = msgs.map(msg => ({
+    ...msg,
+    _id: msg._id.toString(),
+    group: msg.group.toString(),
+    from: {
+        id: msg.from._id.toString(),
+        nickname: msg.from.nickname,
+        avatarUrl: msg.from.avatarUrl || '/default-avatar.png'
+    },
+    isSelf: msg.from._id.equals(currentUserId)
+  }));
+
+  res.json(processedMsgs.reverse());
 });
 
 // 刪除群組（只有建立者）
