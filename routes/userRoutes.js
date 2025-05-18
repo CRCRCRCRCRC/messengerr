@@ -5,6 +5,8 @@ const FriendRequest = require('../models/FriendRequest');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const Group = require('../models/Group');
+const Message = require('../models/Message');
 
 module.exports = function(io) {
   const router = express.Router();
@@ -15,6 +17,106 @@ module.exports = function(io) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
   router.use(ensureAuth);
+
+  // ++ 修改：統一獲取初始資料 ++ 
+  router.get('/initial-data', async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const RECENT_MESSAGES_LIMIT = 10; // ++ 定義預載入訊息數量 ++
+
+      const userPromise = User.findById(userId)
+        .select('nickname userCode avatarUrl friends isNicknameSet')
+        .populate('friends', 'nickname avatarUrl isOnline')
+        .lean();
+      
+      const groupsPromise = Group.find({ members: userId })
+        .select('name avatarUrl members owner')
+        .lean();
+
+      let [userData, groupsData] = await Promise.all([userPromise, groupsPromise]);
+
+      if (!userData) {
+        return res.status(404).json({ message: '使用者不存在' });
+      }
+      if (!userData.isNicknameSet) {
+        // 理論上 ensureNickname 中介軟體會處理，但多一層防護
+        return res.status(403).json({ message: '需要先設定暱稱', redirectTo: '/setup' });
+      }
+
+      // 處理好友，並為每個好友預載入訊息
+      const friendsMap = {};
+      if (userData.friends && userData.friends.length) {
+        for (let friend of userData.friends) {
+          const recentMessages = await Message.find({
+            $or: [
+              { from: userId, to: friend._id },
+              { from: friend._id, to: userId }
+            ]
+          })
+          .sort({ timestamp: -1 })
+          .limit(RECENT_MESSAGES_LIMIT)
+          .lean();
+          
+          // 訊息是降序的，前端可能需要反轉成升序顯示
+          // 附加發送者資訊到訊息中
+          for (let msg of recentMessages) {
+            const sender = msg.from.equals(userId) ? userData : friend;
+            msg.nickname = sender.nickname;
+            msg.avatarUrl = sender.avatarUrl || '/default-avatar.png';
+          }
+
+          friendsMap[friend._id.toString()] = {
+            nickname: friend.nickname,
+            avatarUrl: friend.avatarUrl || '/default-avatar.png',
+            isOnline: friend.isOnline || false,
+            recentMessages: recentMessages.reverse() // 反轉為時間升序
+          };
+        }
+      }
+
+      // 處理群組，並為每個群組預載入訊息
+      if (groupsData && groupsData.length) {
+        for (let group of groupsData) {
+          const recentMessages = await Message.find({ group: group._id })
+            .sort({ timestamp: -1 })
+            .limit(RECENT_MESSAGES_LIMIT)
+            .lean();
+
+          // 附加發送者資訊到訊息中
+          for (let msg of recentMessages) {
+            // 需要查詢 User 表來獲取發送者暱稱和頭像
+            const senderData = await User.findById(msg.from).select('nickname avatarUrl').lean();
+            msg.nickname = senderData ? senderData.nickname : '未知用戶';
+            msg.avatarUrl = senderData ? (senderData.avatarUrl || '/default-avatar.png') : '/default-avatar.png';
+          }
+          group.recentMessages = recentMessages.reverse(); // 反轉為時間升序
+        }
+      }
+
+      const { friends, ...userBasicInfo } = userData;
+
+      res.json({
+        user: {
+          id: userBasicInfo._id.toString(),
+          nickname: userBasicInfo.nickname,
+          userCode: userBasicInfo.userCode,
+          avatarUrl: userBasicInfo.avatarUrl || '/default-avatar.png'
+        },
+        friendsMap: friendsMap,
+        groups: groupsData.map(g => ({
+          id: g._id.toString(),
+          name: g.name,
+          avatarUrl: g.avatarUrl || '/default-avatar.png',
+          recentMessages: g.recentMessages || [] // 確保有 recentMessages 陣列
+        }))
+      });
+
+    } catch (err) {
+      console.error('[/api/initial-data] Error:', err);
+      res.status(500).json({ message: '獲取初始資料失敗' });
+    }
+  });
+  // ++ 結束：統一獲取初始資料 ++ 
 
   // ----------- 使用者頭像設定 -----------
   const avatarsDir = path.join(__dirname, '../public/avatars');
