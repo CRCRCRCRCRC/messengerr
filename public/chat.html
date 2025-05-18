@@ -258,7 +258,8 @@
                 type: 'friend', 
                 name: info.nickname, 
                 avatarUrl: info.avatarUrl, 
-                isOnline: info.isOnline 
+                isOnline: info.isOnline,
+                recentMessages: info.recentMessages || []
               });
             });
           }
@@ -268,8 +269,8 @@
                 id: g.id, 
                 type: 'group', 
                 name: g.name, 
-                avatarUrl: g.avatarUrl 
-                // 如果後端有傳 members, owner 等，也可以在這裡處理
+                avatarUrl: g.avatarUrl,
+                recentMessages: g.recentMessages || []
               });
             });
           }
@@ -370,18 +371,29 @@
       });
     }
     // 開啟聊天
-    function openChat(id,type,name){
-      currentChat={id,type};
-      document.getElementById('chat-with').textContent=type==='friend'?`與 ${name} 聊天中`:name;
-      document.getElementById('message-log').innerHTML=''; document.getElementById('chat-form').classList.remove('d-none');
-      fetch('/api/user/mark-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({withUserId:id})});
-      fetch(`/api/user/chat-history/${id}`).then(r=>r.json()).then(msgs=>{
-        msgs.forEach(m=>appendMessage(m,m.from===myId));
-      });
-      // ++ 新增：切換聊天時，清除正在輸入提示，並通知伺服器停止輸入（如果之前正在輸入）++
+    function openChat(id, type, name) {
+      currentChat = { id, type, name };
+      document.getElementById('chat-with').textContent = type === 'friend' ? `與 ${name} 聊天中` : name;
+      const messageLog = document.getElementById('message-log');
+      messageLog.innerHTML = '';
+      document.getElementById('chat-form').classList.remove('d-none');
+      document.getElementById('message-input').focus();
+
+      const currentChatData = chats.find(c => c.id === id && c.type === type);
+      if (currentChatData && currentChatData.recentMessages && currentChatData.recentMessages.length > 0) {
+        console.log(`顯示 ${currentChatData.recentMessages.length} 條預載入的 ${type} 訊息 for ${name}`);
+        currentChatData.recentMessages.forEach(msg => {
+          appendMessage(msg, msg.from === myId);
+        });
+      }
+
+      if (type === 'friend') {
+          fetch('/api/user/mark-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({withUserId:id})});
+      }
+
       document.getElementById('typing-indicator').style.display = 'none';
       if (isTyping) {
-        socket.emit('typing stop', { chatId: id, chatType: type }); // 通知停止對上一個聊天對象的輸入狀態
+        socket.emit('typing stop', { chatId: id, chatType: type });
         isTyping = false;
       }
       clearTimeout(typingTimeout);
