@@ -2,7 +2,7 @@
 
 由CRCRC製作:
 
-[VerbaRealm聊天網站網址])(https://chat-app-yjbn.onrender.com)
+[VerbaRealm聊天網站網址](https://chat-app-yjbn.onrender.com)
 
 [副頻道，歡迎訂閱!](https://youtube.com/@VICEcrcrcyt)
 
