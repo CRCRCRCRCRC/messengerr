@@ -191,8 +191,8 @@
           msgSound.currentTime=0; msgSound.play().catch(()=>{});
         }
         // if(currentChat?.type==='friend'&&m.from===currentChat.id) appendMessage(m,false);
-        if(currentChat?.type==='friend' && (m.from === currentChat.id || m.to === currentChat.id)) {
-          appendMessage(m); // ++ 移除 isSelf 參數，從 msg.isSelf 取值 (m 物件應包含 isSelf) ++
+        if(currentChat?.type==='friend' && (m.from === currentChat.id || m.to === currentChat.id) && m.from !== myId) {
+          appendMessage(m);
         }
       });
       // 群組訊息
@@ -201,8 +201,8 @@
           msgSound.currentTime=0; msgSound.play().catch(()=>{});
         }
         // if(currentChat?.type==='group'&&m.groupId===currentChat.id) appendMessage(m,false);
-        if(currentChat?.type==='group' && m.groupId === currentChat.id) {
-          appendMessage(m); // ++ 移除 isSelf 參數，從 msg.isSelf 取值 (m 物件應包含 isSelf) ++
+        if(currentChat?.type==='group' && m.groupId === currentChat.id && m.from !== myId) {
+          appendMessage(m);
         }
       });
       // 收回
@@ -494,16 +494,26 @@
         //   appendMessage(m,m.from===myId)
         // 後端 /api/upload-image 回傳的訊息物件也需要包含 isSelf
         // 假設它已包含 isSelf，或者在這裡根據 m.from === myId 判斷並添加
-        if (m.from && !m.hasOwnProperty('isSelf')) {
-            m.isSelf = m.from === myId;
-        }
-        appendMessage(m);
+        // if (m.from && !m.hasOwnProperty('isSelf')) {
+        //     m.isSelf = m.from === myId;
+        // }
+        // ++ 修正：圖片上傳也只在本地樂觀更新，不依賴 Socket 廣播重新加入 ++
+        // 圖片上傳的發送端顯示邏輯已經在 fetch 成功後處理，不需要 Socket 廣播回來後再次處理
+        // Socket 廣播回來的圖片訊息只有其他使用者需要顯示
+        // appendMessage(m);
       });
     }
     // 顯示訊息
     function appendMessage(msg) {
       console.log('[appendMessage] Called with msg:', msg);
       const isSelf = msg.isSelf;
+      // ++ 新增：如果訊息沒有 _id (表示是本地樂觀更新的訊息)，且 isSelf 為 false (表示不應該由自己發送)，則不處理 ++
+      // 實際上，本地樂觀更新的訊息 isSelf 應該始終為 true，這個檢查是為了更安全
+      if (!msg._id && !isSelf) {
+          console.warn('[appendMessage] Ignoring message without _id that is not from self.', msg);
+          return;
+      }
+
       const box=document.getElementById('message-log');
       const div=document.createElement('div'); div.className='message'+(isSelf?' self':'');
       if(msg._id) div.dataset.id=msg._id;
@@ -558,12 +568,23 @@
       }
 
       if(msg.imageUrl&&!msg.recalled){
-        lbImages.push(msg.imageUrl);
-        setTimeout(()=>{
-          const imgs=document.querySelectorAll('img.content-image');
-          const idx=lbImages.length-1;
-          imgs[imgs.length-1].onclick=()=>openLightbox(idx);
-        },0);
+        // ++ 只有在 appendMessage 確實處理並新增了元素後才處理圖片 Lightbox 邏輯 ++
+        // 否則，如果 msg 沒有 _id 且 isSelf 為 false 被忽略了，就不應該加入 lbImages
+        if (div.parentNode === box) { // 檢查元素是否真的被加到 DOM 中
+            lbImages.push(msg.imageUrl);
+            setTimeout(()=>{
+              // 這段邏輯需要調整，確保是給正確的圖片元素綁定事件
+              // 簡單起見，暫時保留原樣，但要注意潛在問題（給錯圖片綁定事件）
+              const imgs=document.querySelectorAll('img.content-image');
+              const idx=lbImages.length-1;
+              // 找到剛剛新增的那張圖片元素來綁定事件會更精確
+              const addedImg = div.querySelector('img.content-image');
+              if (addedImg) {
+                  addedImg.onclick=()=>openLightbox(lbImages.indexOf(addedImg.src.replace(window.location.origin,''))); // 根據 src 找到正確的 index
+              }
+
+            },0);
+        }
       }
     }
     document.addEventListener('click',e=>{
@@ -574,8 +595,12 @@
       if(!contextTargetMsgId) return;
       fetch('/api/message/recall',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messageId:contextTargetMsgId})})
         .then(r=>r.ok&&(()=>{
-          const el=document.querySelector(`.message[data-id="${contextTargetMsgId}"] .bubble-content`);
-          if(el) el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';
+          // ++ 修改：收回成功後，發送一個 Socket 事件通知所有客戶端（包括自己）更新顯示 ++
+          // 直接修改本地 DOM 雖然可以立即看到效果，但狀態不同步，更好的方式是通知伺服器，伺服器再廣播
+          // 伺服器在 messageRoutes.js 中已經處理了廣播 `message recalled` 事件，前端需要依賴這個事件來更新 UI
+          // 這裡的回呼函數可以移除，因為 Socket 事件監聽器會處理實際的 UI 更新
+          // const el=document.querySelector(`.message[data-id="${contextTargetMsgId}"] .bubble-content`);
+          // if(el) el.innerHTML='<em style="color:gray;">此則訊息已被收回</em>';
         })());
       document.getElementById('msg-context-menu').style.display='none';
       contextTargetMsgId=null;
