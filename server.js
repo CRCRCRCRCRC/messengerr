@@ -100,10 +100,14 @@ app.get('/call/:roomId', ensureAuth, ensureNickname, (req, res) => {
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/api/user', require('./routes/userRoutes')(io)); // 給 io 讓推播好友
 app.use('/api/group', require('./routes/groupRoutes'));
+app.use('/api/message', require('./routes/messageRoutes'));
 app.use('/api/upload-image', require('./routes/uploadRoutes')(io));
 
 // Socket.IO session
 io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
+
+// Store io instance for routes
+app.set('io', io);
 
 io.on('connection', async socket => {
   const session = socket.request.session;
