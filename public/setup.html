@@ -2,8 +2,12 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>設定暱稱＆頭像</title>
+  <title>設定個人資料 - VerbaRealm</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="icon" href="/images/verba-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     rel="stylesheet"
@@ -13,43 +17,272 @@
     rel="stylesheet"
   >
   <style>
-    body { background: #f1f3f5; }
-    .container { max-width: 480px; margin: 4rem auto; }
-    #crop-container {
-      width: 100%; max-height: 400px; overflow: hidden;
-      background: #333; display: none;
+    body { 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      background-attachment: fixed;
+      font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      position: relative;
     }
-    #crop-image { max-width: 100%; }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .container { 
+      max-width: 520px; 
+      margin: 4rem auto; 
+      position: relative;
+      z-index: 1;
+    }
+
+    .setup-card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 3rem 2.5rem;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      color: #ffffff;
+      position: relative;
+      overflow: hidden;
+      animation: slideUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .setup-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+      pointer-events: none;
+    }
+
+    .setup-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    h3 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff, #e0e7ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .form-label {
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+    }
+
+    .form-control {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      font-size: 1rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-control:focus {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1), 0 8px 30px rgba(0, 0, 0, 0.15);
+      outline: none;
+      color: #ffffff;
+    }
+
+    .form-control::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    #crop-container {
+      width: 100%; 
+      max-height: 400px; 
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.3); 
+      display: none;
+      border-radius: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    #crop-image { 
+      max-width: 100%; 
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 12px;
+      color: #ffffff;
+      font-weight: 600;
+      padding: 1rem 2rem;
+      font-size: 1.125rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #5a6fd8, #6a4190);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover::before {
+      left: 100%;
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    #errorMsg {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .upload-hint {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    .progress-steps {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .step {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .step.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .step.completed {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    @media (max-width: 576px) {
+      .container {
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      
+      .setup-card {
+        padding: 2rem 1.5rem;
+      }
+      
+      h3 {
+        font-size: 1.5rem;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="container bg-white p-4 rounded shadow-sm">
-    <h3 class="mb-4 text-center">歡迎！請設定暱稱和頭像</h3>
-
-    <form id="setup-form">
-      <div class="mb-3">
-        <label for="nickname" class="form-label">暱稱</label>
-        <input
-          type="text" id="nickname" class="form-control"
-          placeholder="2～20 個字" required minlength="2" maxlength="20"
-        >
+  <div class="container">
+    <div class="setup-card">
+      <div class="progress-steps">
+        <div class="step active">1</div>
+        <div class="step">2</div>
       </div>
 
-      <div class="mb-3">
-        <label class="form-label">上傳頭像</label>
-        <input
-          type="file" id="avatarInput" name="avatar"
-          accept="image/*" class="form-control" required
-        >
-      </div>
+      <h3>完成個人資料設定</h3>
 
-      <div id="crop-container" class="mb-3">
-        <img id="crop-image" src="" alt="Cropper">
-      </div>
+      <form id="setup-form">
+        <div class="mb-4">
+          <label for="nickname" class="form-label">選擇您的暱稱</label>
+          <input
+            type="text" id="nickname" class="form-control"
+            placeholder="輸入 2～20 個字元的暱稱" required minlength="2" maxlength="20"
+          >
+          <div class="upload-hint">這將是其他用戶看到的名稱</div>
+        </div>
 
-      <button type="submit" class="btn btn-primary w-100">完成設定</button>
-      <div id="errorMsg" class="mt-3 text-danger text-center"></div>
-    </form>
+        <div class="mb-4">
+          <label class="form-label">上傳個人頭像</label>
+          <input
+            type="file" id="avatarInput" name="avatar"
+            accept="image/*" class="form-control" required
+          >
+          <div class="upload-hint">支援 JPG、PNG 格式，建議尺寸 200x200 像素</div>
+        </div>
+
+        <div id="crop-container" class="mb-4">
+          <img id="crop-image" src="" alt="頭像裁切預覽">
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          完成設定並進入聊天室
+        </button>
+        
+        <div id="errorMsg" class="mt-3 text-center" style="display: none;"></div>
+      </form>
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
@@ -57,14 +290,20 @@
     const avatarInput = document.getElementById('avatarInput');
     const cropContainer = document.getElementById('crop-container');
     const cropImage = document.getElementById('crop-image');
+    const steps = document.querySelectorAll('.step');
     let cropper = null;
 
     avatarInput.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
+      
       const url = URL.createObjectURL(file);
       cropImage.src = url;
       cropContainer.style.display = 'block';
+      
+      // Update progress
+      steps[1].classList.add('active');
+      
       if (cropper) cropper.destroy();
       cropper = new Cropper(cropImage, {
         aspectRatio: 1,
@@ -73,21 +312,52 @@
         autoCropArea: 1,
         responsive: true,
         background: false,
+        cropBoxResizable: true,
+        cropBoxMovable: true,
+        guides: true,
+        center: true,
+        highlight: true,
+        modal: true,
       });
+    });
+
+    document.getElementById('nickname').addEventListener('input', e => {
+      if (e.target.value.trim().length >= 2) {
+        steps[0].classList.add('completed');
+      } else {
+        steps[0].classList.remove('completed');
+      }
     });
 
     document.getElementById('setup-form').addEventListener('submit', async e => {
       e.preventDefault();
+      
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = '設定中...';
+      submitBtn.disabled = true;
+      
       const nickname = document.getElementById('nickname').value.trim();
       if (nickname.length < 2) {
-        return showError('暱稱需至少 2 個字');
+        showError('暱稱需至少 2 個字元');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        return;
       }
       if (!cropper) {
-        return showError('請先上傳並裁切頭像');
+        showError('請先上傳並裁切頭像');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        return;
       }
 
       // 從 Cropper 拿到裁切後的 Blob
-      cropper.getCroppedCanvas({ width: 200, height: 200 }).toBlob(async blob => {
+      cropper.getCroppedCanvas({ 
+        width: 200, 
+        height: 200,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+      }).toBlob(async blob => {
         const form = new FormData();
         form.append('nickname', nickname);
         form.append('avatar', blob, 'avatar.png');
@@ -97,20 +367,38 @@
             method: 'POST',
             body: form
           });
+          
           if (!res.ok) {
             const text = await res.text();
             throw new Error(text || '設定失敗');
           }
-          // 成功後跳轉聊天室
-          window.location.href = '/chat';
+          
+          // 成功動畫
+          steps.forEach(step => step.classList.add('completed'));
+          submitBtn.textContent = '設定完成！';
+          
+          // 延遲跳轉以顯示成功狀態
+          setTimeout(() => {
+            window.location.href = '/chat';
+          }, 1000);
+          
         } catch (err) {
           showError(err.message);
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
         }
-      }, 'image/png');
+      }, 'image/png', 0.9);
     });
 
     function showError(msg) {
-      document.getElementById('errorMsg').textContent = msg;
+      const errorDiv = document.getElementById('errorMsg');
+      errorDiv.textContent = msg;
+      errorDiv.style.display = 'block';
+      
+      // 自動隱藏錯誤訊息
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 5000);
     }
   </script>
 </body>

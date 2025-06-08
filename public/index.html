@@ -2,59 +2,284 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8"/>
-  <title>VerbaRealm</title>
+  <title>VerbaRealm - 現代化聊天體驗</title>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <link rel="icon" href="/images/verba-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     /* ========= Reset & Base ========= */
-    * { box-sizing: border-box; margin:0; padding:0; }
-    html, body {
-      width:100%; height:100%;
-      font-family:'Segoe UI',sans-serif;
-      background: linear-gradient(135deg, #1f1c2c, #928dab);
-      display:flex; align-items:center; justify-content:center;
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
     }
+    
+    html, body {
+      width: 100%; 
+      height: 100%;
+      font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      background-attachment: fixed;
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.4) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.4) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.3) 0%, transparent 50%);
+      pointer-events: none;
+      animation: backgroundShift 20s ease-in-out infinite;
+    }
+
+    @keyframes backgroundShift {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
     /* ======== 登入框 ======== */
     .login-container {
-      max-width:360px;
-      width:90%;
-      padding:2rem;
-      text-align:center;
-      color:#fff;
-      background:rgba(0,0,0,0.3);
-      border-radius:1rem;
-      backdrop-filter:blur(6px);
+      max-width: 420px;
+      width: 90%;
+      padding: 3rem 2.5rem;
+      text-align: center;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      position: relative;
+      overflow: hidden;
+      animation: slideUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
+    .login-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+      pointer-events: none;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .login-container > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-container {
+      margin-bottom: 2rem;
+      position: relative;
+    }
+
+    .logo-container img {
+      margin: 0 auto 1rem;
+      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+
     .login-container h1 {
-      margin-bottom:0.5rem;
-      font-size:2rem;
+      margin-bottom: 0.75rem;
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff, #e0e7ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      letter-spacing: -0.02em;
     }
+
     .login-container p {
-      margin-bottom:1.5rem;
-      font-size:1rem;
-      opacity:0.85;
+      margin-bottom: 2.5rem;
+      font-size: 1.125rem;
+      opacity: 0.9;
+      line-height: 1.6;
+      font-weight: 400;
     }
+
     .btn-google {
-      display:inline-block;
-      padding:0.6rem 1.2rem;
-      font-size:1rem;
-      color:#444;
-      background:#fff;
-      border-radius:0.5rem;
-      text-decoration:none;
-      transition:background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 1rem 2rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1f2937;
+      background: linear-gradient(135deg, #ffffff, #f8fafc);
+      border: none;
+      border-radius: 16px;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+      position: relative;
+      overflow: hidden;
+      min-width: 200px;
     }
+
+    .btn-google::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+      transition: left 0.5s;
+    }
+
     .btn-google:hover {
-      background:#eee;
+      background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-google:hover::before {
+      left: 100%;
+    }
+
+    .btn-google:active {
+      transform: translateY(-1px);
+    }
+
+    .google-icon {
+      width: 20px;
+      height: 20px;
+      background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI2SDE3LjkyQzE3LjY2IDE1LjYgMTYuOTIgMTYuNzQgMTUuODQgMTcuNVYyMC4yNkgxOS4yOEMyMS4zNiAxOC40MyAyMi41NiAxNS42IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNCIvPgo8cGF0aCBkPSJNMTIgMjJDMTUuMTEgMjIgMTcuNzYgMjAuOTIgMTkuMjggMTguMjZMMTUuODQgMTcuNUMxNC43OCAxOC4xMyAxMy40NyAxOC41IDEyIDE4LjVDOS4wNiAxOC41IDYuNTUgMTYuNjIgNS42OCAxNC4wNEgyLjE4VjE2Ljg0QzMuNjkgMTkuODQgNy42MSAyMiAxMiAyMloiIGZpbGw9IiMzNEE4NTMiLz4KPHBhdGggZD0iTTUuNjggMTQuMDRDNS40MSAxMy4zOCA1LjI2IDEyLjY5IDUuMjYgMTJDNS4yNiAxMS4zMSA1LjQxIDEwLjYyIDUuNjggOS45NlY3LjE2SDIuMThDMS40MyA4LjY1IDEgMTAuMjYgMSAxMkMxIDEzLjc0IDEuNDMgMTUuMzUgMi4xOCAxNi44NEw1LjY4IDE0LjA0WiIgZmlsbD0iI0ZCQkMwNSIvPgo8cGF0aCBkPSJNMTIgNS41QzEzLjYyIDUuNSAxNS4wNiA2LjA5IDE2LjIxIDcuMjFMMTkuMzYgNC4wNkMxNy43NiAyLjU2IDE1LjExIDEuNSAxMiAxLjVDNy42MSAxLjUgMy42OSAzLjY2IDIuMTggNi42Nkw1LjY4IDkuNDZDNi41NSA2Ljg4IDkuMDYgNS41IDEyIDUuNVoiIGZpbGw9IiNFQTQzMzUiLz4KPC9zdmc+') no-repeat center;
+      background-size: contain;
+    }
+
+    .features {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .features h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .feature-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      text-align: left;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .feature-icon {
+      width: 16px;
+      height: 16px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: white;
+    }
+
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+      }
+      
+      .login-container h1 {
+        font-size: 2rem;
+      }
+      
+      .feature-list {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="login-container">
-    <img src="/images/verba-icon.png" alt="VerbaRealm" width="64" height="64" style="margin-bottom:1rem;">
-    <h1>VerbaRealm</h1>
-    <p>使用 Google 帳號快速登入以開始聊天。</p>
-    <a href="/auth/google" class="btn-google">使用 Google 登入</a>
+    <div class="logo-container">
+      <img src="/images/verba-icon.png" alt="VerbaRealm" width="80" height="80">
+      <h1>VerbaRealm</h1>
+    </div>
+    
+    <p>體驗下一代即時通訊，與朋友保持連結，享受流暢的聊天體驗。</p>
+    
+    <a href="/auth/google" class="btn-google">
+      <span class="google-icon"></span>
+      使用 Google 帳號登入
+    </a>
+
+    <div class="features">
+      <h3>功能特色</h3>
+      <div class="feature-list">
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          即時訊息傳送
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          語音通話功能
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          群組聊天室
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          圖片分享
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          好友管理
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          安全加密
+        </div>
+      </div>
+    </div>
   </div>
 </body>
 </html>
